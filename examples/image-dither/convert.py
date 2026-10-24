@@ -1,17 +1,18 @@
 # /// script
 # requires-python = ">=3.10"
-# dependencies = ["pillow>=10"]
+# dependencies = ["pillow>=10", "numpy>=1.26"]
 # ///
 """Dither the image in input/ to the Spectra 6 palette and write image_data.h.
 
 Usage: uv run convert.py [--crop] [--contrast FACTOR] [--saturation FACTOR]
-                          [--palette {ideal,measured}]
+                          [--palette {ideal,measured}] [--dither {floyd,atkinson}]
 """
 
 import argparse
 import sys
 from pathlib import Path
 
+import numpy as np
 from PIL import Image, ImageEnhance, ImageOps
 
 # Native panel size (portrait). Landscape images are rotated to fit.
@@ -96,7 +97,8 @@ def fit_to_palette_range(img: Image.Image, palette: list) -> Image.Image:
     return img.point(lut)
 
 
-def dither(img: Image.Image, palette: list) -> bytes:
+def dither_floyd_steinberg(img: Image.Image, palette: list) -> bytes:
+    """Return one panel colour code per pixel."""
     flat = [c for rgb, _ in palette for c in rgb]
     # Pad the 256-entry palette by repeating the first colour so no extra
     # indices sneak in; anything >= len(palette) is mapped to black below.
@@ -106,10 +108,59 @@ def dither(img: Image.Image, palette: list) -> bytes:
 
     indices = img.quantize(palette=palette_img, dither=Image.Dither.FLOYDSTEINBERG).tobytes()
     codes = bytes(palette[i][1] if i < len(palette) else palette[0][1] for i in range(256))
-    pixels = indices.translate(codes)
+    return indices.translate(codes)
 
-    # Two pixels per byte, left pixel in the high nibble.
-    return bytes((pixels[i] << 4) | pixels[i + 1] for i in range(0, len(pixels), 2))
+
+def dither_atkinson(img: Image.Image, palette: list) -> bytes:
+    """Return one panel colour code per pixel.
+
+    Atkinson passes on only 6/8 of each pixel's error (1/8 to each of six
+    neighbours), which gives punchier contrast and fewer stray dots than
+    Floyd-Steinberg, at the cost of some shadow and highlight detail.
+    Runs per pixel in Python, so it takes a few seconds rather than <1s.
+    """
+    colours = [rgb for rgb, _ in palette]
+    codes = [code for _, code in palette]
+    pixels = np.asarray(img, dtype=np.float32)
+    height, width, _ = pixels.shape
+    # Two extra columns each side so neighbours never go out of bounds.
+    err = np.zeros((height + 2, width + 4, 3), dtype=np.float32)
+    out = bytearray(width * height)
+
+    for y in range(height):
+        row = (pixels[y] + err[y, 2:-2]).tolist()
+        below = [[0.0, 0.0, 0.0] for _ in range(width + 4)]
+        below2 = [[0.0, 0.0, 0.0] for _ in range(width + 4)]
+        for x in range(width):
+            r, g, b = row[x]
+            best, best_dist = 0, float("inf")
+            for i, (pr, pg, pb) in enumerate(colours):
+                dist = (r - pr) ** 2 + (g - pg) ** 2 + (b - pb) ** 2
+                if dist < best_dist:
+                    best, best_dist = i, dist
+            out[y * width + x] = codes[best]
+
+            pr, pg, pb = colours[best]
+            er, eg, eb = (r - pr) / 8, (g - pg) / 8, (b - pb) / 8
+            for nx in (x + 1, x + 2):
+                if nx < width:
+                    n = row[nx]
+                    n[0] += er; n[1] += eg; n[2] += eb
+            # below/below2 are offset by 2 to match err's padding.
+            for n in (below[x + 1], below[x + 2], below[x + 3], below2[x + 2]):
+                n[0] += er; n[1] += eg; n[2] += eb
+        err[y + 1] += np.asarray(below, dtype=np.float32)
+        err[y + 2] += np.asarray(below2, dtype=np.float32)
+
+    return bytes(out)
+
+
+DITHERS = {"floyd": dither_floyd_steinberg, "atkinson": dither_atkinson}
+
+
+def pack_pixels(codes: bytes) -> bytes:
+    """Two pixels per byte, left pixel in the high nibble."""
+    return bytes((codes[i] << 4) | codes[i + 1] for i in range(0, len(codes), 2))
 
 
 def write_header(data: bytes, source: Path, settings: str) -> None:
@@ -146,6 +197,8 @@ def main() -> None:
     parser.add_argument("--palette", choices=PALETTES, default="ideal",
                         help="colours to dither against: pure primaries, or the panel's "
                              "measured inks (default ideal)")
+    parser.add_argument("--dither", choices=DITHERS, default="floyd",
+                        help="error diffusion method (default floyd; atkinson is punchier but slower)")
     args = parser.parse_args()
 
     source = find_input()
@@ -163,7 +216,8 @@ def main() -> None:
     settings.append(f"{args.palette} palette")
     if args.palette == "measured":
         img = fit_to_palette_range(img, palette)
-    data = dither(img, palette)
+    settings.append(args.dither)
+    data = pack_pixels(DITHERS[args.dither](img, palette))
     settings = ", ".join(settings)
     write_header(data, source, settings)
     write_preview(data, palette)
