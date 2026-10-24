@@ -4,7 +4,7 @@
 # ///
 """Dither the image in input/ to the Spectra 6 palette and write image_data.h.
 
-Usage: uv run convert.py [--crop] [--contrast FACTOR] [--saturation FACTOR]
+Usage: uv run convert.py [--fit {contain,cover,fill}] [--contrast FACTOR] [--saturation FACTOR]
                           [--palette {ideal,measured}] [--dither {floyd,atkinson}]
 """
 
@@ -62,7 +62,7 @@ def find_input() -> Path:
     return image
 
 
-def load(path: Path, crop: bool) -> Image.Image:
+def load(path: Path) -> Image.Image:
     img = ImageOps.exif_transpose(Image.open(path))
 
     # Flatten transparency onto white, the panel's background colour.
@@ -73,9 +73,26 @@ def load(path: Path, crop: bool) -> Image.Image:
     if img.width > img.height:
         img = img.rotate(90, expand=True)
 
-    if crop:
-        return ImageOps.fit(img, (WIDTH, HEIGHT), Image.Resampling.LANCZOS)
+    return img
+
+
+# Named after CSS object-fit.
+def fit_contain(img: Image.Image) -> Image.Image:
+    """Show the whole image, with white bars where the aspect ratio differs."""
     return ImageOps.pad(img, (WIDTH, HEIGHT), Image.Resampling.LANCZOS, color="white")
+
+
+def fit_cover(img: Image.Image) -> Image.Image:
+    """Fill the whole screen, cropping whatever overflows."""
+    return ImageOps.fit(img, (WIDTH, HEIGHT), Image.Resampling.LANCZOS)
+
+
+def fit_fill(img: Image.Image) -> Image.Image:
+    """Stretch to exactly the screen size, distorting the aspect ratio."""
+    return img.resize((WIDTH, HEIGHT), Image.Resampling.LANCZOS)
+
+
+FITS = {"contain": fit_contain, "cover": fit_cover, "fill": fit_fill}
 
 
 def boost_contrast(img: Image.Image, factor: float) -> Image.Image:
@@ -188,8 +205,9 @@ def write_preview(data: bytes, palette: list) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--crop", action="store_true",
-                        help="fill the whole screen by cropping instead of adding white borders")
+    parser.add_argument("--fit", choices=FITS, default="contain",
+                        help="contain: whole image with white bars; cover: fill screen, crop "
+                             "overflow; fill: stretch to screen (default contain)")
     parser.add_argument("--contrast", type=float, default=1.0, metavar="FACTOR",
                         help="contrast boost before dithering, e.g. 1.2 (default 1.0 = off)")
     parser.add_argument("--saturation", type=float, default=1.0, metavar="FACTOR",
@@ -202,8 +220,8 @@ def main() -> None:
     args = parser.parse_args()
 
     source = find_input()
-    img = load(source, args.crop)
-    settings = ["crop" if args.crop else "pad"]
+    img = FITS[args.fit](load(source))
+    settings = [args.fit]
     # Contrast first, so the saturation boost works on the final tones.
     if args.contrast != 1.0:
         img = boost_contrast(img, args.contrast)
