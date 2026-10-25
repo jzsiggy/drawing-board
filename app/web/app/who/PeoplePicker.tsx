@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
 
 import { SignatureSvg } from "@/components/SignatureSvg";
+import { useHydrated } from "@/components/useHydrated";
 import { useResetOnLeave } from "@/components/useResetOnLeave";
 import type { StrokeDoc } from "@/lib/strokes";
 
@@ -18,6 +19,7 @@ export interface PickerPerson {
 
 export function PeoplePicker({ people, currentId }: { people: PickerPerson[]; currentId: string | null }) {
   const router = useRouter();
+  const hydrated = useHydrated();
   const [query, setQuery] = useState("");
   const [picking, setPicking] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -60,6 +62,7 @@ export function PeoplePicker({ people, currentId }: { people: PickerPerson[]; cu
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search names"
           aria-label="Search names"
+          disabled={!hydrated}
           autoComplete="off"
           className="h-12 rounded-full border border-line bg-card px-5 text-base outline-none placeholder:text-muted focus:border-ink"
         />

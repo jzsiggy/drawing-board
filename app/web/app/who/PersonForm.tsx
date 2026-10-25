@@ -6,6 +6,7 @@ import { useCallback, useState } from "react";
 
 import { StrokeCanvas } from "@/components/canvas/StrokeCanvas";
 import { useStrokeHistory } from "@/components/canvas/useStrokeHistory";
+import { useHydrated } from "@/components/useHydrated";
 import { useResetOnLeave } from "@/components/useResetOnLeave";
 import { SIGNATURE_ASPECT, type StrokeDoc } from "@/lib/strokes";
 
@@ -19,6 +20,7 @@ interface Props {
 
 export function PersonForm({ person }: Props) {
   const router = useRouter();
+  const hydrated = useHydrated();
   const [initial] = useState(() => ({ name: person?.name ?? "", strokes: person?.signature.strokes ?? [] }));
   const [name, setName] = useState(initial.name);
   const signature = useStrokeHistory(initial.strokes);
@@ -78,6 +80,7 @@ export function PersonForm({ person }: Props) {
             value={name}
             onChange={(e) => setName(e.target.value)}
             maxLength={80}
+            disabled={!hydrated}
             autoComplete="name"
             placeholder="Whatever you like to be called"
             className="h-12 rounded-lg border border-line bg-card px-4 text-lg outline-none placeholder:text-muted focus:border-ink"

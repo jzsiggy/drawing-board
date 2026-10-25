@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 
 import { StrokeCanvas } from "@/components/canvas/StrokeCanvas";
@@ -32,25 +33,35 @@ const SIZES = [
 const SKETCH_WIDTH = 1200;
 const SKETCH_HEIGHT = 1600;
 
-type Status = { kind: "drawing" } | { kind: "confirm-restart" } | { kind: "saving" } | { kind: "saved" } | { kind: "error"; message: string };
+type Status = { kind: "drawing" } | { kind: "confirm-restart" } | { kind: "saving" } | { kind: "error"; message: string };
 
-export default function DrawingBoard({ personName }: { personName: string }) {
-  const history = useStrokeHistory();
+interface Props {
+  personName: string;
+  // "Keep drawing" from a poster: start from that drawing's strokes, and
+  // record it as the new drawing's parent.
+  initialStrokes?: Stroke[];
+  parentId?: string;
+}
+
+export default function DrawingBoard({ personName, initialStrokes, parentId }: Props) {
+  const router = useRouter();
+  const [startingStrokes] = useState(() => initialStrokes ?? []);
+  const history = useStrokeHistory(startingStrokes);
   const [color, setColor] = useState(COLORS[0].value);
   const [size, setSize] = useState(SIZES[1].value);
   const [tool, setTool] = useState<Stroke["tool"]>("pen");
   const [status, setStatus] = useState<Status>({ kind: "drawing" });
 
-  // A blank canvas every time you come back.
+  // A fresh canvas every time you come back.
   const { reset } = history;
   useResetOnLeave(
     useCallback(() => {
-      reset([]);
+      reset(startingStrokes);
       setColor(COLORS[0].value);
       setSize(SIZES[1].value);
       setTool("pen");
       setStatus({ kind: "drawing" });
-    }, [reset]),
+    }, [reset, startingStrokes]),
   );
 
   async function submit() {
@@ -60,17 +71,18 @@ export default function DrawingBoard({ personName }: { personName: string }) {
       const form = new FormData();
       form.set("strokes", JSON.stringify(doc));
       form.set("sketch", await strokesToPng(history.strokes, SKETCH_WIDTH, SKETCH_HEIGHT), "sketch.png");
-      const res = await fetch("/api/drawings", { method: "POST", body: form });
-      if (!res.ok) throw new Error((await res.json().catch(() => null))?.error ?? "Couldn't save your drawing.");
-      setStatus({ kind: "saved" });
+      if (parentId) form.set("parent_drawing_id", parentId);
+      const saved = await fetch("/api/drawings", { method: "POST", body: form });
+      if (!saved.ok) throw new Error((await saved.json().catch(() => null))?.error ?? "Couldn't save your drawing.");
+      const { id: drawingId } = await saved.json();
+
+      const started = await fetch(`/api/drawings/${drawingId}/generations`, { method: "POST" });
+      if (!started.ok) throw new Error((await started.json().catch(() => null))?.error ?? "Couldn't start your poster.");
+      const { id: generationId } = await started.json();
+      router.push(`/result/${generationId}`);
     } catch (e) {
       setStatus({ kind: "error", message: e instanceof Error ? e.message : "Couldn't save your drawing." });
     }
-  }
-
-  function drawAnother() {
-    history.reset([]);
-    setStatus({ kind: "drawing" });
   }
 
   const empty = history.strokes.length === 0;
@@ -188,24 +200,13 @@ export default function DrawingBoard({ personName }: { personName: string }) {
               disabled={empty || busy}
               className="h-11 shrink-0 rounded-full bg-ink px-5 font-medium text-card transition disabled:bg-line disabled:text-muted"
             >
-              {busy ? "Saving…" : "Submit"}
+              {busy ? "Sending…" : "Submit"}
             </button>
           </div>
         )}
         {status.kind === "error" && <p className="text-sm text-accent">{status.message}</p>}
       </footer>
 
-      {status.kind === "saved" && (
-        <div className="absolute inset-0 flex items-end justify-center bg-ink/40 p-4 sm:items-center">
-          <div className="flex w-full max-w-sm flex-col gap-4 rounded-2xl bg-card p-6 shadow-lg" role="dialog" aria-label="Drawing saved">
-            <h2 className="font-display text-2xl font-bold">Saved</h2>
-            <p className="text-muted">Your drawing is in. Turning it into a retro poster is the next thing we&rsquo;re building.</p>
-            <button type="button" onClick={drawAnother} className="h-12 rounded-full bg-ink font-medium text-card">
-              Draw another
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

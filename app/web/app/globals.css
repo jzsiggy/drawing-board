@@ -37,3 +37,13 @@ body {
 input:focus-visible {
   outline: none;
 }
+
+/* The ink band on the "printing your poster" screen. */
+@keyframes print {
+  0% {
+    top: -0.75rem;
+  }
+  100% {
+    top: 100%;
+  }
+}

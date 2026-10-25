@@ -131,7 +131,12 @@ export function StrokeCanvas({
   };
 
   return (
-    <div ref={wrapRef} className={`flex items-center justify-center ${className ?? ""}`}>
+    <div
+      ref={wrapRef}
+      className={`flex items-center justify-center ${className ?? ""}`}
+      // Holds the canvas's height from the first paint, before it measures.
+      style={fit === "width" ? { aspectRatio: aspect } : undefined}
+    >
       <canvas
         ref={canvasRef}
         role="img"
