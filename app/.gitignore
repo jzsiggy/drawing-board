@@ -1,0 +1,3 @@
+firmware/frame/config.h
+firmware/test-server/images/*
+!firmware/test-server/images/.gitkeep
