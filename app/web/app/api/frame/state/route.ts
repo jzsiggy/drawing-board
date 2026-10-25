@@ -26,9 +26,10 @@ export async function GET(request: NextRequest) {
 
   if (shown) await markShown(board, shown);
 
+  // 204 rather than 304: Vercel strips X-Next-Check from 304 responses.
   if (!desired || desired.sha256 === shown) {
     await recordCheckin(board, telemetry, "no-change");
-    return new Response(null, { status: 304, headers });
+    return new Response(null, { status: 204, headers });
   }
 
   const { data, error } = await createAdminClient()

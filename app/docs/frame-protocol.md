@@ -26,11 +26,12 @@ Asks whether there is a new image. The frame sends the SHA-256 of the image it
 is showing as `If-None-Match: "<sha256 hex>"`, or omits the header if it has
 never shown one.
 
-Every `200` and `304` response carries `X-Next-Check: <seconds>`: how long the
+Every `200` and `204` response carries `X-Next-Check: <seconds>`: how long the
 frame should sleep before checking again. The server owns the schedule.
 
-- **`304 Not Modified`**: nothing to do (the hash matches, or there is no image
-  yet). No body.
+- **`204 No Content`**: nothing to do (the hash matches, or there is no image
+  yet). Not `304`: Vercel's edge strips custom headers such as `X-Next-Check`
+  from `304` responses. The firmware still treats `304` like `204`.
 - **`200 OK`**: a different image should be shown. Flat JSON body (no nesting,
   so the firmware can parse it without a library):
 

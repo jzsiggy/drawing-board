@@ -17,7 +17,7 @@
 #include "root_certs.h"
 #include "EPD_13in3e.h"
 
-#define FIRMWARE_VERSION "0.2.0"
+#define FIRMWARE_VERSION "0.2.1"
 
 static const uint32_t DEFAULT_CHECK_S = 600;
 static const uint32_t MIN_BACKOFF_S = 120;
@@ -189,7 +189,7 @@ static State fetchState() {
     long next = http.header("X-Next-Check").toInt();
     if (next > 0) state.nextCheckS = next;
 
-    if (code == 304) {
+    if (code == 204 || code == 304) {
         state.ok = true;
     } else if (code == 200) {
         String body = http.getString();

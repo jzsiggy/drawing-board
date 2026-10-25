@@ -121,7 +121,7 @@ def make_handler(frames: Frames, token: str, interval: int):
             shown = self.headers.get("If-None-Match", "").strip('"')
             if sha is None or sha == shown:
                 log(f"CHECK no change, showing {shown[:12] or 'nothing'} ({self.telemetry()})")
-                self.send_response(304)
+                self.send_response(204)
                 self.send_header("X-Next-Check", str(interval))
                 self.end_headers()
                 return
