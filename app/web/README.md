@@ -50,7 +50,23 @@ after a schema change.
 ## Checks
 
 ```sh
-npm test            # render pipeline
+npm test            # unit tests: render pipeline, strokes, signatures
 npm run typecheck
 npm run lint
+npm run e2e         # browser tests (below)
 ```
+
+### Browser tests
+
+`npm run e2e` starts the local Supabase stack (needs Docker), builds the app
+into `.next-e2e` against it with fake posters (`IMAGE_GENERATOR=fake`), serves
+it on http://localhost:3101 and runs every `e2e/*.spec.mjs` in a phone-sized
+headless Chrome. It never touches the real project or spends API credits, and
+it can run while `npm run dev` is up.
+
+- `npm run e2e -- --no-build` reuses the last build; `--only people` runs one spec.
+- Screenshots land in `e2e/screenshots/`.
+- Uses the installed Google Chrome; set `CHROME_PATH` to use another.
+
+Each spec covers one area (people, drawing, posters). When a bug turns up,
+add a check for it to the matching spec.
