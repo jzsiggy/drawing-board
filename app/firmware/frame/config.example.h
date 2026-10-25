@@ -4,8 +4,8 @@
 #define WIFI_SSID     "your-wifi"
 #define WIFI_PASSWORD "your-password"
 
-// Phase 0: the local test server on your Mac, e.g. "http://192.168.1.20:8787".
-// Plain http only for now; https comes with the real server.
+// The local test server or `next dev` on your Mac ("http://192.168.1.20:8787"
+// or ":3000"), or the deployed app ("https://your-app.vercel.app").
 #define SERVER_BASE_URL "http://192.168.1.20:8787"
 #define BOARD_TOKEN     "dev-token"
 

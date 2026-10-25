@@ -4,6 +4,7 @@
 
 #include <WiFi.h>
 #include <HTTPClient.h>
+#include <NetworkClientSecure.h>
 #include <Preferences.h>
 #include <esp_sleep.h>
 #include <esp_timer.h>
@@ -13,9 +14,10 @@
 #include <algorithm>
 
 #include "config.h"
+#include "root_certs.h"
 #include "EPD_13in3e.h"
 
-#define FIRMWARE_VERSION "0.1.0"
+#define FIRMWARE_VERSION "0.2.0"
 
 static const uint32_t DEFAULT_CHECK_S = 600;
 static const uint32_t MIN_BACKOFF_S = 120;
@@ -34,6 +36,9 @@ static const int BATTERY_ADC_GPIO = 8;
 RTC_DATA_ATTR static uint8_t rtcBssid[6];
 RTC_DATA_ATTR static int32_t rtcChannel = 0;
 RTC_DATA_ATTR static uint32_t rtcBackoffS = 0;
+
+static NetworkClientSecure secureClient;
+static WiFiClient plainClient;
 
 static int batteryMv = 0;
 static int rssi = 0;
@@ -136,6 +141,16 @@ static bool connectWifi() {
 
 // ---------------------------------------------------------------- server
 
+// https URLs (the real server, Supabase Storage) are verified against the
+// roots in root_certs.h; plain http is only for the local test server.
+static bool beginRequest(HTTPClient &http, const String &url) {
+    if (url.startsWith("https://")) {
+        secureClient.setCACert(ROOT_CERTS);
+        return http.begin(secureClient, url);
+    }
+    return http.begin(plainClient, url);
+}
+
 static void addFrameHeaders(HTTPClient &http) {
     http.addHeader("Authorization", "Bearer " BOARD_TOKEN);
     http.addHeader("X-Battery-mV", String(batteryMv));
@@ -164,7 +179,7 @@ static String jsonValue(const String &body, const char *key) {
 static State fetchState() {
     State state = {false, false, DEFAULT_CHECK_S, "", "", 0};
     HTTPClient http;
-    http.begin(String(SERVER_BASE_URL) + "/api/frame/state");
+    beginRequest(http, String(SERVER_BASE_URL) + "/api/frame/state");
     addFrameHeaders(http);
     if (currentSha.length()) http.addHeader("If-None-Match", "\"" + currentSha + "\"");
     const char *wanted[] = {"X-Next-Check"};
@@ -227,7 +242,7 @@ static uint8_t *downloadFrame(const State &state) {
     }
 
     HTTPClient http;
-    http.begin(state.url);
+    beginRequest(http, state.url);
     size_t got = 0;
     if (http.GET() == 200) {
         WiFiClient *stream = http.getStreamPtr();
@@ -253,7 +268,7 @@ static uint8_t *downloadFrame(const State &state) {
 
 static void sendAck(const String &sha) {
     HTTPClient http;
-    http.begin(String(SERVER_BASE_URL) + "/api/frame/ack");
+    beginRequest(http, String(SERVER_BASE_URL) + "/api/frame/ack");
     addFrameHeaders(http);
     http.addHeader("Content-Type", "application/json");
     int code = http.POST("{\"sha256\":\"" + sha + "\"}");
