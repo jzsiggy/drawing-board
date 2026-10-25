@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
 import { useResetOnLeave } from "@/components/useResetOnLeave";
+import { FramePanel } from "./FramePanel";
 
 const POLL_MS = 2000;
 
@@ -106,6 +107,8 @@ export function ResultView({ generationId, drawingId, sketchUrl, artistName }: P
         {retryError && <p className="text-sm text-accent">{retryError}</p>}
       </section>
 
+      {generation.status === "succeeded" && <FramePanel generationId={generationId} />}
+
       {finished && (
         <div className="mt-auto grid grid-cols-2 gap-3">
           <Link
@@ -118,7 +121,9 @@ export function ResultView({ generationId, drawingId, sketchUrl, artistName }: P
             type="button"
             onClick={tryAgain}
             disabled={retrying}
-            className="h-12 rounded-full bg-ink font-medium text-card disabled:bg-line disabled:text-muted"
+            className={`h-12 rounded-full font-medium disabled:bg-line disabled:text-muted ${
+              generation.status === "succeeded" ? "border border-ink" : "bg-ink text-card"
+            }`}
           >
             {retrying ? "Starting…" : "Try again"}
           </button>

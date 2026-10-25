@@ -27,14 +27,18 @@ export async function sendImageToBoard(send: SendToBoard) {
   const settings = renderSettingsFrom(board.settings);
   const rendered = await renderForPanel(send.image, board.panel_type, settings);
 
-  // Same pixels for the same panel means the same file: reuse it.
-  const { data: existing, error: findError } = await supabase
+  // Reuse the rendition if this exact image was already rendered for this
+  // panel. Posters match on (generation, panel, settings), never on the file
+  // hash alone: two posters can be byte-identical, and the rendition is what
+  // records which poster a frame is showing.
+  let query = supabase
     .from("renditions")
     .select("id")
-    .eq("sha256", rendered.sha256)
     .eq("panel_type", board.panel_type)
-    .limit(1)
-    .maybeSingle();
+    .eq("settings_hash", settingsHash(settings))
+    .eq("sha256", rendered.sha256);
+  query = send.generationId ? query.eq("generation_id", send.generationId) : query.is("generation_id", null);
+  const { data: existing, error: findError } = await query.limit(1).maybeSingle();
   if (findError) throw findError;
 
   let renditionId = existing?.id;

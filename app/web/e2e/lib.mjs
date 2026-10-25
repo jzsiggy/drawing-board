@@ -1,9 +1,11 @@
 // Shared helpers for the browser tests. Each spec is a plain Node script run
 // by e2e/run.mjs; it prints PASS/FAIL lines and exits non-zero on failure.
+import { createHash } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { chromium } from "playwright-core";
 
 export const BASE = process.env.E2E_BASE_URL ?? "http://localhost:3101";
+export const BOARD_TOKEN = process.env.E2E_BOARD_TOKEN ?? "e2e-frame-token";
 const CHROME = process.env.CHROME_PATH ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const SCREENSHOTS = new URL("./screenshots/", import.meta.url).pathname;
 
@@ -82,3 +84,29 @@ export async function addYourself(page, name) {
 
 // Unique per run, so specs don't trip over people from earlier runs.
 export const runId = Date.now().toString(36).slice(-5);
+
+// Plays the frame's part of app/docs/frame-protocol.md like the firmware:
+// check in with the hash it's showing, download and verify a new image, ack.
+let frameShowing = null;
+export async function frameChecksIn() {
+  const headers = { Authorization: `Bearer ${BOARD_TOKEN}`, "X-Battery-mV": "3950", "X-RSSI": "-55", "X-Firmware": "e2e" };
+  const state = await fetch(BASE + "/api/frame/state", {
+    headers: frameShowing ? { ...headers, "If-None-Match": `"${frameShowing}"` } : headers,
+  });
+  const nextCheck = state.headers.get("x-next-check");
+  if (state.status === 204) return { changed: false, nextCheck };
+  if (state.status !== 200) throw new Error(`frame state returned ${state.status}`);
+  const { sha256, url, bytes } = await state.json();
+  const file = Buffer.from(await (await fetch(url)).arrayBuffer());
+  const valid =
+    file.length === bytes &&
+    file.subarray(0, 4).toString("ascii") === "EPD1" &&
+    createHash("sha256").update(file).digest("hex") === sha256;
+  const ack = await fetch(BASE + "/api/frame/ack", {
+    method: "POST",
+    headers: { ...headers, "Content-Type": "application/json" },
+    body: JSON.stringify({ sha256 }),
+  });
+  if (valid) frameShowing = sha256;
+  return { changed: true, valid, acked: ack.status === 204, nextCheck };
+}

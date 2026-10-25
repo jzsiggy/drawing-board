@@ -30,7 +30,7 @@ export async function findBoardByAuthorization(header: string | null): Promise<B
   return data;
 }
 
-export function checkIntervalSeconds(board: Board): number {
+export function checkIntervalSeconds(board: Pick<Board, "settings">): number {
   const value = (board.settings as { check_interval_s?: unknown } | null)?.check_interval_s;
   return typeof value === "number" && value >= 60 ? value : DEFAULT_CHECK_INTERVAL_S;
 }
