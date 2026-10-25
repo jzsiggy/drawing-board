@@ -1,0 +1,235 @@
+"use client";
+
+import Link from "next/link";
+import { useCallback, useState } from "react";
+
+import { StrokeCanvas } from "@/components/canvas/StrokeCanvas";
+import { strokesToPng } from "@/components/canvas/strokesToPng";
+import { useStrokeHistory } from "@/components/canvas/useStrokeHistory";
+import { useResetOnLeave } from "@/components/useResetOnLeave";
+import { DRAWING_ASPECT, type Stroke, type StrokeDoc } from "@/lib/strokes";
+
+// The panel's six inks plus orange and pink.
+const COLORS = [
+  { name: "Black", value: "#1b1e20" },
+  { name: "White", value: "#ffffff" },
+  { name: "Red", value: "#c4302b" },
+  { name: "Orange", value: "#e8742a" },
+  { name: "Yellow", value: "#f2c230" },
+  { name: "Green", value: "#2f8a4a" },
+  { name: "Blue", value: "#2a5bb8" },
+  { name: "Pink", value: "#e46a9c" },
+];
+
+// Brush widths as fractions of the canvas width.
+const SIZES = [
+  { name: "Thin", value: 0.008 },
+  { name: "Medium", value: 0.018 },
+  { name: "Thick", value: 0.04 },
+];
+
+// Same size as the panel, so the sketch needs no scaling later.
+const SKETCH_WIDTH = 1200;
+const SKETCH_HEIGHT = 1600;
+
+type Status = { kind: "drawing" } | { kind: "confirm-restart" } | { kind: "saving" } | { kind: "saved" } | { kind: "error"; message: string };
+
+export default function DrawingBoard({ personName }: { personName: string }) {
+  const history = useStrokeHistory();
+  const [color, setColor] = useState(COLORS[0].value);
+  const [size, setSize] = useState(SIZES[1].value);
+  const [tool, setTool] = useState<Stroke["tool"]>("pen");
+  const [status, setStatus] = useState<Status>({ kind: "drawing" });
+
+  // A blank canvas every time you come back.
+  const { reset } = history;
+  useResetOnLeave(
+    useCallback(() => {
+      reset([]);
+      setColor(COLORS[0].value);
+      setSize(SIZES[1].value);
+      setTool("pen");
+      setStatus({ kind: "drawing" });
+    }, [reset]),
+  );
+
+  async function submit() {
+    setStatus({ kind: "saving" });
+    try {
+      const doc: StrokeDoc = { version: 1, aspect: DRAWING_ASPECT, strokes: history.strokes };
+      const form = new FormData();
+      form.set("strokes", JSON.stringify(doc));
+      form.set("sketch", await strokesToPng(history.strokes, SKETCH_WIDTH, SKETCH_HEIGHT), "sketch.png");
+      const res = await fetch("/api/drawings", { method: "POST", body: form });
+      if (!res.ok) throw new Error((await res.json().catch(() => null))?.error ?? "Couldn't save your drawing.");
+      setStatus({ kind: "saved" });
+    } catch (e) {
+      setStatus({ kind: "error", message: e instanceof Error ? e.message : "Couldn't save your drawing." });
+    }
+  }
+
+  function drawAnother() {
+    history.reset([]);
+    setStatus({ kind: "drawing" });
+  }
+
+  const empty = history.strokes.length === 0;
+  const busy = status.kind === "saving";
+
+  return (
+    <div className="fixed inset-0 flex flex-col overflow-hidden bg-paper select-none">
+      <header className="flex items-center justify-between px-4 pt-3 pb-2 text-sm">
+        <span className="truncate">
+          Drawing as <strong className="font-semibold">{personName}</strong>
+        </span>
+        <Link href="/who" className="shrink-0 font-mono text-xs tracking-widest text-muted uppercase hover:text-ink">
+          Switch
+        </Link>
+      </header>
+
+      <StrokeCanvas
+        aspect={DRAWING_ASPECT}
+        strokes={history.strokes}
+        tool={tool}
+        color={color}
+        size={size}
+        onStroke={history.add}
+        label="Drawing canvas"
+        fit="contain"
+        className="min-h-0 flex-1 px-4"
+        canvasClassName="rounded-md bg-white shadow-[0_1px_3px_rgb(0_0_0/0.12)]"
+      />
+
+      <footer className="flex flex-col gap-2 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        <div className="flex items-center gap-2">
+          <div className="flex flex-1 justify-between" role="radiogroup" aria-label="Colour">
+            {COLORS.map((c) => {
+              const selected = tool === "pen" && color === c.value;
+              return (
+                <button
+                  key={c.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  aria-label={c.name}
+                  onClick={() => {
+                    setColor(c.value);
+                    setTool("pen");
+                  }}
+                  className={`size-7 rounded-full border transition ${selected ? "ring-2 ring-ink ring-offset-2 ring-offset-paper" : ""}`}
+                  style={{ background: c.value, borderColor: c.value === "#ffffff" ? "var(--line)" : c.value }}
+                />
+              );
+            })}
+          </div>
+          <IconButton
+            label="Eraser"
+            pressed={tool === "eraser"}
+            onClick={() => setTool(tool === "eraser" ? "pen" : "eraser")}
+          >
+            <path d="m7 21-4.3-4.3a1 1 0 0 1 0-1.4l10-10a1 1 0 0 1 1.4 0l5.6 5.6a1 1 0 0 1 0 1.4L11 21" />
+            <path d="M22 21H7M5 11l9 9" />
+          </IconButton>
+        </div>
+
+        {status.kind === "confirm-restart" ? (
+          <div className="flex h-11 items-center justify-between gap-2">
+            <span className="text-sm">Start over?</span>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setStatus({ kind: "drawing" })} className="h-10 rounded-full border border-line px-4 text-sm">
+                Keep drawing
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  history.clear();
+                  setStatus({ kind: "drawing" });
+                }}
+                className="h-10 rounded-full bg-accent px-4 text-sm font-medium text-card"
+              >
+                Start over
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex h-11 items-center gap-1">
+            <div className="flex items-center" role="radiogroup" aria-label="Brush size">
+              {SIZES.map((s) => (
+                <button
+                  key={s.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={size === s.value}
+                  aria-label={s.name}
+                  onClick={() => setSize(s.value)}
+                  className={`flex size-9 items-center justify-center rounded-full ${size === s.value ? "bg-card ring-1 ring-ink" : ""}`}
+                >
+                  <span className="rounded-full bg-ink" style={{ width: 4 + s.value * 400, height: 4 + s.value * 400 }} />
+                </button>
+              ))}
+            </div>
+            <div className="flex flex-1 items-center justify-center">
+              <IconButton label="Undo" onClick={history.undo} disabled={!history.canUndo || busy}>
+                <path d="M9 14 4 9l5-5" />
+                <path d="M4 9h11a5 5 0 0 1 0 10h-4" />
+              </IconButton>
+              <IconButton label="Redo" onClick={history.redo} disabled={!history.canRedo || busy}>
+                <path d="m15 14 5-5-5-5" />
+                <path d="M20 9H9a5 5 0 0 0 0 10h4" />
+              </IconButton>
+              <IconButton label="Start over" onClick={() => setStatus({ kind: "confirm-restart" })} disabled={empty || busy}>
+                <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
+                <path d="M3 3v5h5" />
+              </IconButton>
+            </div>
+            <button
+              type="button"
+              onClick={submit}
+              disabled={empty || busy}
+              className="h-11 shrink-0 rounded-full bg-ink px-5 font-medium text-card transition disabled:bg-line disabled:text-muted"
+            >
+              {busy ? "Saving…" : "Submit"}
+            </button>
+          </div>
+        )}
+        {status.kind === "error" && <p className="text-sm text-accent">{status.message}</p>}
+      </footer>
+
+      {status.kind === "saved" && (
+        <div className="absolute inset-0 flex items-end justify-center bg-ink/40 p-4 sm:items-center">
+          <div className="flex w-full max-w-sm flex-col gap-4 rounded-2xl bg-card p-6 shadow-lg" role="dialog" aria-label="Drawing saved">
+            <h2 className="font-display text-2xl font-bold">Saved</h2>
+            <p className="text-muted">Your drawing is in. Turning it into a retro poster is the next thing we&rsquo;re building.</p>
+            <button type="button" onClick={drawAnother} className="h-12 rounded-full bg-ink font-medium text-card">
+              Draw another
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function IconButton({
+  label,
+  pressed,
+  children,
+  ...props
+}: { label: string; pressed?: boolean } & Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, "aria-label">) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      aria-pressed={pressed}
+      className={`flex size-9 shrink-0 items-center justify-center rounded-full transition disabled:text-line ${
+        pressed ? "bg-ink text-card" : ""
+      }`}
+      {...props}
+    >
+      <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        {children}
+      </svg>
+    </button>
+  );
+}
