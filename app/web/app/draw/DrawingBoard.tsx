@@ -94,9 +94,14 @@ export default function DrawingBoard({ personName, initialStrokes, parentId }: P
         <span className="truncate">
           Drawing as <strong className="font-semibold">{personName}</strong>
         </span>
-        <Link href="/who" className="shrink-0 font-mono text-xs tracking-widest text-muted uppercase hover:text-ink">
-          Switch
-        </Link>
+        <nav className="flex shrink-0 gap-4 font-mono text-xs tracking-widest text-muted uppercase">
+          <Link href="/gallery" className="hover:text-ink">
+            Gallery
+          </Link>
+          <Link href="/who" className="hover:text-ink">
+            Switch
+          </Link>
+        </nav>
       </header>
 
       <StrokeCanvas

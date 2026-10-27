@@ -6,11 +6,17 @@ import type { TablesUpdate } from "@/lib/supabase/database.types";
 import { getImageGenerator } from "./generator";
 import { DEFAULT_PRESET, PRESETS, type PresetId } from "./presets";
 import { signPoster } from "./sign";
+import { makeThumbnail, thumbPath } from "./thumbnail";
 import { GenerationError } from "./types";
 
 // A generation still pending or running after this long has died with its
 // function (e.g. a Vercel timeout) and is reported as failed.
 export const STALE_AFTER_MS = 5 * 60 * 1000;
+
+export function isStale(generation: { status: string; created_at: string }) {
+  const unfinished = generation.status === "pending" || generation.status === "running";
+  return unfinished && Date.now() - new Date(generation.created_at).getTime() > STALE_AFTER_MS;
+}
 
 export async function createGeneration(drawingId: string, presetId: PresetId = DEFAULT_PRESET) {
   const preset = PRESETS[presetId];
@@ -60,11 +66,13 @@ export async function runGeneration(id: string) {
 
     const imagePath = `${id}.png`;
     const signedPath = `${id}-signed.png`;
-    for (const [path, bytes] of [
-      [imagePath, poster],
-      [signedPath, signed],
+    const thumb = thumbPath(id);
+    for (const [path, bytes, contentType] of [
+      [imagePath, poster, "image/png"],
+      [signedPath, signed, "image/png"],
+      [thumb, await makeThumbnail(signed), "image/webp"],
     ] as const) {
-      const upload = await supabase.storage.from("generations").upload(path, bytes, { contentType: "image/png" });
+      const upload = await supabase.storage.from("generations").upload(path, bytes, { contentType });
       if (upload.error) throw upload.error;
     }
 
@@ -72,6 +80,7 @@ export async function runGeneration(id: string) {
       status: "succeeded",
       image_path: imagePath,
       signed_path: signedPath,
+      thumb_path: thumb,
       finished_at: new Date().toISOString(),
     });
   } catch (e) {

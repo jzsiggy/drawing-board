@@ -300,6 +300,7 @@ export type Database = {
           signed_path: string | null;
           started_at: string | null;
           status: Database["public"]["Enums"]["generation_status"];
+          thumb_path: string | null;
         };
         ComputedFields: never;
         Insert: {
@@ -316,6 +317,7 @@ export type Database = {
           signed_path?: string | null;
           started_at?: string | null;
           status?: Database["public"]["Enums"]["generation_status"];
+          thumb_path?: string | null;
         };
         Update: {
           created_at?: string;
@@ -331,6 +333,7 @@ export type Database = {
           signed_path?: string | null;
           started_at?: string | null;
           status?: Database["public"]["Enums"]["generation_status"];
+          thumb_path?: string | null;
         };
         Relationships: [
           {

@@ -77,7 +77,13 @@ for (const spec of specs) {
   const code = await new Promise((resolve) => {
     const child = spawn("node", [fileURLToPath(new URL(spec, import.meta.url))], {
       cwd: ROOT,
-      env: { ...process.env, E2E_BASE_URL: BASE, E2E_BOARD_TOKEN: BOARD_TOKEN },
+      env: {
+        ...process.env,
+        E2E_BASE_URL: BASE,
+        E2E_BOARD_TOKEN: BOARD_TOKEN,
+        E2E_SUPABASE_URL: status.API_URL,
+        E2E_SUPABASE_SECRET: status.SERVICE_ROLE_KEY,
+      },
       stdio: "inherit",
     });
     child.on("exit", resolve);

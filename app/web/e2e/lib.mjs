@@ -110,3 +110,24 @@ export async function frameChecksIn() {
   if (valid) frameShowing = sha256;
   return { changed: true, valid, acked: ack.status === 204, nextCheck };
 }
+
+// For things that load after the page (fetches, streamed content): waits up
+// to `timeout` instead of checking once. isVisible() doesn't wait.
+export function appears(locator, timeout = 10000) {
+  return locator.waitFor({ timeout }).then(() => true, () => false);
+}
+
+// Inserts rows straight into the local test database, for states the UI
+// can't easily produce (a failed or abandoned poster).
+export async function insertRows(table, rows) {
+  const response = await fetch(`${process.env.E2E_SUPABASE_URL}/rest/v1/${table}`, {
+    method: "POST",
+    headers: {
+      apikey: process.env.E2E_SUPABASE_SECRET,
+      Authorization: `Bearer ${process.env.E2E_SUPABASE_SECRET}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(rows),
+  });
+  if (!response.ok) throw new Error(`insert into ${table} returned ${response.status}: ${await response.text()}`);
+}

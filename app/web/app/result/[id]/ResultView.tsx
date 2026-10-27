@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
 import { useResetOnLeave } from "@/components/useResetOnLeave";
-import { FramePanel } from "./FramePanel";
+import { FramePanel } from "@/components/FramePanel";
 
 const POLL_MS = 2000;
 
@@ -75,7 +75,9 @@ export function ResultView({ generationId, drawingId, sketchUrl, artistName }: P
         <Link href="/draw" className="font-mono text-xs tracking-widest text-muted uppercase hover:text-ink">
           ← New drawing
         </Link>
-        <span className="text-muted">by {artistName}</span>
+        <Link href={`/gallery/${drawingId}`} className="font-mono text-xs tracking-widest text-muted uppercase hover:text-ink">
+          Gallery
+        </Link>
       </header>
 
       {generation.status === "succeeded" ? (
@@ -89,6 +91,7 @@ export function ResultView({ generationId, drawingId, sketchUrl, artistName }: P
       )}
 
       <section className="flex flex-col gap-3" aria-live="polite">
+        <p className="-mb-2 text-sm text-muted">by {artistName}</p>
         {generation.status === "succeeded" && (
           <h1 className="font-display text-3xl font-bold tracking-tight">Your poster</h1>
         )}

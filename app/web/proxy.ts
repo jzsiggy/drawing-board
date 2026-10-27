@@ -26,8 +26,10 @@ export async function proxy(request: NextRequest) {
     },
   });
 
+  // New sessions only for people opening pages: an API call without one gets
+  // a 401 from the route instead of minting a new anonymous user each time.
   const { data } = await supabase.auth.getClaims();
-  if (!data?.claims) {
+  if (!data?.claims && !request.nextUrl.pathname.startsWith("/api/")) {
     const { data: signIn, error } = await supabase.auth.signInAnonymously();
     if (error) {
       console.error("Anonymous sign-in failed:", error.message);

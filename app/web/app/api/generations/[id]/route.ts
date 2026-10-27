@@ -1,7 +1,7 @@
 // GET /api/generations/:id: status of a poster, with a link to it once done.
 
 import { jsonError } from "@/lib/api";
-import { STALE_AFTER_MS } from "@/lib/generate/run";
+import { isStale } from "@/lib/generate/run";
 import { getDeviceId } from "@/lib/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -21,8 +21,7 @@ export async function GET(_request: Request, ctx: RouteContext<"/api/generations
   if (!data) return jsonError(404, "That poster doesn't exist.");
 
   let { status, error: message } = data;
-  const unfinished = status === "pending" || status === "running";
-  if (unfinished && Date.now() - new Date(data.created_at).getTime() > STALE_AFTER_MS) {
+  if (isStale(data)) {
     status = "failed";
     message = "Making the poster took too long. Try again.";
     await supabase
