@@ -82,6 +82,18 @@ export async function addYourself(page, name) {
   await page.getByRole("img", { name: "Drawing canvas" }).waitFor();
 }
 
+// "Make it a poster" on the canvas, then step 1: an optional title, then
+// "Generate poster". Lands on the poster's page.
+export async function makePoster(page, title) {
+  await page.getByRole("button", { name: "Make it a poster" }).filter({ visible: true }).click();
+  await page.waitForURL("**/draw/*/poster");
+  const field = page.getByLabel("Poster title").filter({ visible: true });
+  await page.waitForFunction((el) => !el.disabled, await field.elementHandle());
+  if (title !== undefined) await field.fill(title);
+  await page.getByRole("button", { name: "Generate poster" }).filter({ visible: true }).click();
+  await page.waitForURL("**/result/**");
+}
+
 // Unique per run, so specs don't trip over people from earlier runs.
 export const runId = Date.now().toString(36).slice(-5);
 

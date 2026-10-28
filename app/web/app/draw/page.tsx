@@ -17,7 +17,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: "#eceeeb",
+  themeColor: "#f4efe6",
 };
 
 export default function DrawPage({ searchParams }: PageProps<"/draw">) {
@@ -32,14 +32,17 @@ async function Board({ searchParams }: { searchParams: PageProps<"/draw">["searc
   const person = await getCurrentPerson();
   if (!person) redirect("/who");
 
-  // ?from=<drawing id>: "Keep drawing" from a poster.
+  const signature = person.signature_strokes as unknown as StrokeDoc;
+  // ?from=<drawing id>: "Edit sketch" from a poster.
   const from = z.uuid().safeParse((await searchParams).from);
   if (from.success) {
     const { data } = await createAdminClient().from("drawings").select("id, strokes").eq("id", from.data).maybeSingle();
     if (data) {
       const strokes = (data.strokes as unknown as StrokeDoc).strokes;
-      return <DrawingBoardLoader personName={person.name} initialStrokes={strokes} parentId={data.id} />;
+      return (
+        <DrawingBoardLoader personName={person.name} personSignature={signature} initialStrokes={strokes} parentId={data.id} />
+      );
     }
   }
-  return <DrawingBoardLoader personName={person.name} />;
+  return <DrawingBoardLoader personName={person.name} personSignature={signature} />;
 }

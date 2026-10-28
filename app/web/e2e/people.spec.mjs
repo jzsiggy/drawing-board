@@ -19,10 +19,10 @@ await screenshot(page, "people-4-new-person");
 await page.getByRole("button", { name: "Save person" }).click();
 await page.waitForURL("**/draw", { timeout: 10000 }).catch(() => {});
 check("a signature sliding off the pad is saved", page.url().endsWith("/draw"));
-check("the canvas says who's drawing", await page.getByText(`Drawing as ${name}`).waitFor().then(() => true, () => false));
+check("the canvas says who's drawing", await page.getByRole("img", { name: `${name}'s signature` }).filter({ visible: true }).waitFor().then(() => true, () => false));
 
 // The picker: you, under "On this phone", with Edit.
-await page.getByRole("link", { name: "Switch" }).click();
+await page.getByRole("link", { name: "Change" }).click();
 await page.waitForURL("**/who");
 await page.getByText("On this phone").waitFor();
 const card = page.getByRole("button", { name: new RegExp(name) });
@@ -41,7 +41,7 @@ await page.getByPlaceholder("Search names").fill(runId);
 // Picking someone, then coming back, shows nothing stuck or left over.
 await card.first().click();
 await page.waitForURL("**/draw");
-await page.getByRole("link", { name: "Switch" }).click();
+await page.getByRole("link", { name: "Change" }).click();
 await page.waitForURL("**/who");
 await page.getByRole("link", { name: "Add a person" }).waitFor();
 check("no card is stuck on 'One moment…'", (await page.getByText("One moment…").count()) === 0);
@@ -64,7 +64,7 @@ check("the signature is cleared when you come back", await page.getByRole("butto
 
 // ...and after adding someone.
 await addYourself(page, `Ben ${runId}`);
-await page.getByRole("link", { name: "Switch" }).click();
+await page.getByRole("link", { name: "Change" }).click();
 await page.waitForURL("**/who");
 await page.getByRole("link", { name: "Add a person" }).click();
 await page.waitForURL("**/who/new");
@@ -85,6 +85,6 @@ check("…and sees no edit form", (await other.getByPlaceholder("Whatever you li
 await other.goto(BASE + "/who");
 await other.getByRole("button", { name: new RegExp(name) }).first().click();
 await other.waitForURL("**/draw");
-check("another phone can pick Ana", await other.getByText(`Drawing as ${name}`).waitFor().then(() => true, () => false));
+check("another phone can pick Ana", await other.getByRole("img", { name: `${name}'s signature` }).filter({ visible: true }).waitFor().then(() => true, () => false));
 
 await finish();

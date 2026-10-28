@@ -1,6 +1,6 @@
 // The gallery: drawings with their versions, the drawing page (pick a
 // version, send it, make another), filters, and images loading.
-import { addYourself, appears, BASE, check, frameChecksIn, insertRows, launch, runId, screenshot, stroke } from "./lib.mjs";
+import { addYourself, makePoster, appears, BASE, check, frameChecksIn, insertRows, launch, runId, screenshot, stroke } from "./lib.mjs";
 
 const { newPhone, finish } = await launch();
 const page = await newPhone();
@@ -26,8 +26,7 @@ async function allImagesLoaded(locator) {
 
 // A poster, on the frame.
 await stroke(page, page.getByRole("img", { name: "Drawing canvas" }), [[0.2, 0.8], [0.5, 0.2], [0.8, 0.8]]);
-await page.getByRole("button", { name: "Submit" }).click();
-await page.waitForURL("**/result/**");
+await makePoster(page);
 await poster().waitFor({ timeout: 30000 });
 await visible(page.getByRole("button", { name: "Send to frame" })).click();
 await text(/Sent\. It shows up/).waitFor({ timeout: 10000 });

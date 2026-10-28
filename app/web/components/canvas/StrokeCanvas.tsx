@@ -17,6 +17,8 @@ interface Props {
   fit?: "width" | "contain";
   className?: string;
   canvasClassName?: string;
+  // Drawn over the canvas, inside its box (labels, guide lines).
+  overlay?: React.ReactNode;
 }
 
 // A finger/pen canvas at a fixed aspect ratio, sized from its container. Committed strokes are cached in an offscreen canvas; only the stroke
@@ -32,6 +34,7 @@ export function StrokeCanvas({
   fit = "width",
   className,
   canvasClassName,
+  overlay,
 }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -137,17 +140,20 @@ export function StrokeCanvas({
       // Holds the canvas's height from the first paint, before it measures.
       style={fit === "width" ? { aspectRatio: aspect } : undefined}
     >
-      <canvas
-        ref={canvasRef}
-        role="img"
-        aria-label={label}
-        style={{ width: box.width, height: box.height, touchAction: "none" }}
-        className={canvasClassName}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={finish}
-        onPointerCancel={finish}
-      />
+      <div className="relative" style={{ width: box.width, height: box.height }}>
+        <canvas
+          ref={canvasRef}
+          role="img"
+          aria-label={label}
+          style={{ width: box.width, height: box.height, touchAction: "none" }}
+          className={`block ${canvasClassName ?? ""}`}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={finish}
+          onPointerCancel={finish}
+        />
+        {overlay && <div className="pointer-events-none absolute inset-0">{overlay}</div>}
+      </div>
     </div>
   );
 }

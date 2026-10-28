@@ -241,6 +241,7 @@ export type Database = {
           parent_drawing_id: string | null;
           sketch_path: string;
           strokes: NonNullable<Json>;
+          title: string | null;
         };
         ComputedFields: never;
         Insert: {
@@ -251,6 +252,7 @@ export type Database = {
           parent_drawing_id?: string | null;
           sketch_path: string;
           strokes: NonNullable<Json>;
+          title?: string | null;
         };
         Update: {
           artist_id?: string;
@@ -260,6 +262,7 @@ export type Database = {
           parent_drawing_id?: string | null;
           sketch_path?: string;
           strokes?: NonNullable<Json>;
+          title?: string | null;
         };
         Relationships: [
           {
@@ -296,6 +299,7 @@ export type Database = {
           model: string;
           preset_id: string;
           preset_version: number;
+          preview_path: string | null;
           prompt: string;
           signed_path: string | null;
           started_at: string | null;
@@ -313,6 +317,7 @@ export type Database = {
           model: string;
           preset_id: string;
           preset_version: number;
+          preview_path?: string | null;
           prompt: string;
           signed_path?: string | null;
           started_at?: string | null;
@@ -329,6 +334,7 @@ export type Database = {
           model?: string;
           preset_id?: string;
           preset_version?: number;
+          preview_path?: string | null;
           prompt?: string;
           signed_path?: string | null;
           started_at?: string | null;

@@ -97,21 +97,22 @@ export function PersonForm({ person }: Props) {
               </button>
             </div>
           </div>
-          <div className="relative">
-            <StrokeCanvas
-              aspect={SIGNATURE_ASPECT}
-              strokes={signature.strokes}
-              tool="pen"
-              color={SIGNATURE_INK}
-              size={SIGNATURE_SIZE}
-              onStroke={signature.add}
-              label="Signature pad"
-              canvasClassName="border border-line bg-white"
-            />
-            {/* The line to sign on, and the hint under it; under the strokes. */}
-            <div className="pointer-events-none absolute right-6 bottom-11 left-6 border-t border-dashed border-faint" />
-            <span className="pointer-events-none absolute bottom-4 left-6 text-xs text-muted">Sign above the line with your finger</span>
-          </div>
+          <StrokeCanvas
+            aspect={SIGNATURE_ASPECT}
+            strokes={signature.strokes}
+            tool="pen"
+            color={SIGNATURE_INK}
+            size={SIGNATURE_SIZE}
+            onStroke={signature.add}
+            label="Signature pad"
+            canvasClassName="border border-line bg-white"
+            overlay={
+              <>
+                <div className="absolute right-6 bottom-11 left-6 border-t border-dashed border-faint" />
+                <span className="absolute bottom-4 left-6 text-xs text-muted">Sign above the line with your finger</span>
+              </>
+            }
+          />
         </div>
 
         <div className="flex items-start gap-3 bg-sunken p-4">

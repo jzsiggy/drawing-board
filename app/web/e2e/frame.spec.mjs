@@ -1,7 +1,7 @@
 // "Send to frame": the frame panel on the poster page, with this script
 // playing the frame (check in, download, ack) against the test frame that
 // run.mjs creates.
-import { addYourself, check, frameChecksIn, launch, runId, screenshot, stroke } from "./lib.mjs";
+import { addYourself, makePoster, check, frameChecksIn, launch, runId, screenshot, stroke } from "./lib.mjs";
 
 const { newPhone, finish } = await launch();
 const page = await newPhone();
@@ -11,17 +11,16 @@ const poster = () => page.getByRole("img", { name: /Retro poster made from/ });
 // Visited pages stay in the DOM, hidden, so match visible text only.
 const text = (t) => page.getByText(t).filter({ visible: true });
 const sendButton = () => page.getByRole("button", { name: "Send to frame" });
-async function makePoster() {
+async function newPoster() {
   await stroke(page, page.getByRole("img", { name: "Drawing canvas" }), [[0.2, 0.8], [0.5, 0.2], [0.8, 0.8]]);
-  await page.getByRole("button", { name: "Submit" }).click();
-  await page.waitForURL("**/result/**");
+  await makePoster(page);
   await poster().waitFor({ timeout: 30000 });
 }
 
 const before = await frameChecksIn();
 check("a frame with nothing to show gets 204 and its schedule", !before.changed && before.nextCheck === "600");
 
-await makePoster();
+await newPoster();
 const firstPoster = page.url();
 await sendButton().waitFor();
 check("the poster page offers Send to frame", true);
