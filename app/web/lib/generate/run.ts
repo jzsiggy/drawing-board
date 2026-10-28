@@ -6,6 +6,7 @@ import type { TablesUpdate } from "@/lib/supabase/database.types";
 import { getImageGenerator } from "./generator";
 import { DEFAULT_PRESET, PRESETS, type PresetId } from "./presets";
 import { signPoster } from "./sign";
+import { makeEinkPreview, previewPath } from "./preview";
 import { makeThumbnail, thumbPath } from "./thumbnail";
 import { GenerationError } from "./types";
 
@@ -64,25 +65,30 @@ export async function runGeneration(id: string) {
     });
     const signed = await signPoster(poster, drawing.artist.signature_strokes as unknown as StrokeDoc);
 
+    const upload = async (path: string, bytes: Buffer, contentType: string) => {
+      const { error: uploadError } = await supabase.storage.from("generations").upload(path, bytes, { contentType });
+      if (uploadError) throw uploadError;
+    };
+
     const imagePath = `${id}.png`;
     const signedPath = `${id}-signed.png`;
     const thumb = thumbPath(id);
-    for (const [path, bytes, contentType] of [
-      [imagePath, poster, "image/png"],
-      [signedPath, signed, "image/png"],
-      [thumb, await makeThumbnail(signed), "image/webp"],
-    ] as const) {
-      const upload = await supabase.storage.from("generations").upload(path, bytes, { contentType });
-      if (upload.error) throw upload.error;
-    }
+    await upload(imagePath, poster, "image/png");
+    await upload(signedPath, signed, "image/png");
+    await upload(thumb, await makeThumbnail(signed), "image/webp");
+    // Still running: the image exists, the e-ink preview comes next (the
+    // generating screen shows this as "Fitting it to the display's six inks").
+    await update({ image_path: imagePath, signed_path: signedPath, thumb_path: thumb });
 
-    await update({
-      status: "succeeded",
-      image_path: imagePath,
-      signed_path: signedPath,
-      thumb_path: thumb,
-      finished_at: new Date().toISOString(),
-    });
+    // The poster is done either way; without a preview the toggle says so.
+    let preview: string | null = previewPath(id);
+    try {
+      await upload(preview, await makeEinkPreview(signed), "image/png");
+    } catch (e) {
+      console.error(`Generation ${id}: no e-ink preview:`, e);
+      preview = null;
+    }
+    await update({ status: "succeeded", preview_path: preview, finished_at: new Date().toISOString() });
   } catch (e) {
     console.error(`Generation ${id} failed:`, e);
     // Only model refusals and the like are worth showing word for word.

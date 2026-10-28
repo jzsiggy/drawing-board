@@ -1,10 +1,11 @@
-// Makes gallery thumbnails for posters created before thumbnails existed.
-// Safe to run more than once: only touches posters without one.
+// Makes gallery thumbnails and e-ink previews for posters created before
+// they existed. Safe to run more than once: only touches posters missing one.
 //
 // Usage: npx tsx scripts/backfill-thumbnails.ts [--dry-run]
 
 import "./load-env";
 
+import { makeEinkPreview, previewPath } from "@/lib/generate/preview";
 import { makeThumbnail, thumbPath } from "@/lib/generate/thumbnail";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -13,29 +14,35 @@ const supabase = createAdminClient();
 
 const { data, error } = await supabase
   .from("generations")
-  .select("id, signed_path")
+  .select("id, signed_path, thumb_path, preview_path")
   .eq("status", "succeeded")
-  .is("thumb_path", null)
+  .or("thumb_path.is.null,preview_path.is.null")
   .not("signed_path", "is", null);
 if (error) throw error;
 
-console.log(`${data.length} poster(s) without a thumbnail${dryRun ? " (dry run, nothing written)" : ""}`);
+console.log(`${data.length} poster(s) missing a thumbnail or preview${dryRun ? " (dry run, nothing written)" : ""}`);
 for (const generation of data) {
+  const jobs = [
+    !generation.thumb_path && { column: "thumb_path" as const, path: thumbPath(generation.id), type: "image/webp", make: makeThumbnail },
+    !generation.preview_path && { column: "preview_path" as const, path: previewPath(generation.id), type: "image/png", make: makeEinkPreview },
+  ].filter((job) => job !== false);
   if (dryRun) {
-    console.log(`  would make ${thumbPath(generation.id)}`);
+    for (const job of jobs) console.log(`  would make ${job.path}`);
     continue;
   }
   const poster = await supabase.storage.from("generations").download(generation.signed_path!);
   if (poster.error) throw poster.error;
-  const path = thumbPath(generation.id);
-  const upload = await supabase.storage
-    .from("generations")
-    .upload(path, await makeThumbnail(Buffer.from(await poster.data.arrayBuffer())), {
-      contentType: "image/webp",
-      upsert: true,
-    });
-  if (upload.error) throw upload.error;
-  const { error: updateError } = await supabase.from("generations").update({ thumb_path: path }).eq("id", generation.id);
-  if (updateError) throw updateError;
-  console.log(`  made ${path}`);
+  const bytes = Buffer.from(await poster.data.arrayBuffer());
+  for (const job of jobs) {
+    const upload = await supabase.storage
+      .from("generations")
+      .upload(job.path, await job.make(bytes), { contentType: job.type, upsert: true });
+    if (upload.error) throw upload.error;
+    const { error: updateError } = await supabase
+      .from("generations")
+      .update(job.column === "thumb_path" ? { thumb_path: job.path } : { preview_path: job.path })
+      .eq("id", generation.id);
+    if (updateError) throw updateError;
+    console.log(`  made ${job.path}`);
+  }
 }

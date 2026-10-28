@@ -18,16 +18,21 @@ export function AppHeader({ tone = "light" }: { tone?: "light" | "dark" }) {
   );
 }
 
-// The top bar inside a flow: a way back on the left, where you are on the right.
-export function BackHeader({ href, back, label }: { href: string; back: string; label?: string }) {
+// The top bar inside a flow: a way back on the left (if there is one), where
+// you are on the right.
+export function BackHeader({ href, back, label }: { href?: string; back?: string; label?: string }) {
   return (
     <header className="flex h-14 shrink-0 items-center justify-between border-b border-line pr-5 pl-2">
-      <Link href={href} className="flex min-h-11 items-center gap-1 px-2 text-sm text-ink no-underline">
-        <svg viewBox="0 0 24 24" className="size-6" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square" aria-hidden>
-          <path d="M15 6l-6 6 6 6" />
-        </svg>
-        {back}
-      </Link>
+      {href && back ? (
+        <Link href={href} className="flex min-h-11 items-center gap-1 px-2 text-sm text-ink no-underline">
+          <svg viewBox="0 0 24 24" className="size-6" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square" aria-hidden>
+            <path d="M15 6l-6 6 6 6" />
+          </svg>
+          {back}
+        </Link>
+      ) : (
+        <span />
+      )}
       {label && <span className="microcaps">{label}</span>}
     </header>
   );

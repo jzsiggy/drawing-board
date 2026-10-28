@@ -14,7 +14,7 @@ export async function GET(_request: Request, ctx: RouteContext<"/api/generations
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("generations")
-    .select("id, drawing_id, status, error, signed_path, created_at")
+    .select("id, drawing_id, status, error, image_path, signed_path, created_at")
     .eq("id", id)
     .maybeSingle();
   if (error) throw error;
@@ -38,5 +38,9 @@ export async function GET(_request: Request, ctx: RouteContext<"/api/generations
     imageUrl = signed.data.signedUrl;
   }
 
-  return Response.json({ id: data.id, drawingId: data.drawing_id, status, error: message, imageUrl });
+  // Where an unfinished poster is: waiting to start, being painted by the
+  // model, or being fitted to the panel's inks.
+  const stage = status === "pending" ? "queued" : status === "running" ? (data.image_path ? "fitting" : "painting") : null;
+
+  return Response.json({ id: data.id, drawingId: data.drawing_id, status, stage, error: message, imageUrl });
 }

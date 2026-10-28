@@ -99,3 +99,22 @@ export async function listFrameStatuses(generationId?: string): Promise<FrameSta
     };
   });
 }
+
+// The poster a frame was showing before this one was last sent to it, for
+// "Replaces …". Undefined when there was nothing (or nothing made here).
+export async function replacedPosterTitle(boardId: string, generationId: string): Promise<string | null | undefined> {
+  const { data, error } = await createAdminClient()
+    .from("displays")
+    .select("sent_at, shown_at, rendition:renditions!inner(generation_id, generation:generations(drawing:drawings(title)))")
+    .eq("board_id", boardId)
+    .order("sent_at", { ascending: false })
+    .limit(50);
+  if (error) throw error;
+  const sent = data.findIndex((d) => d.rendition.generation_id === generationId);
+  if (sent === -1) return undefined;
+  const before = data
+    .slice(sent + 1)
+    .find((d) => d.shown_at && d.rendition.generation_id && d.rendition.generation_id !== generationId);
+  if (!before) return undefined;
+  return before.rendition.generation?.drawing?.title ?? null;
+}

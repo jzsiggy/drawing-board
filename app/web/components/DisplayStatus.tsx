@@ -8,8 +8,8 @@ import type { FrameStatus } from "@/lib/frames/status";
 // Asking more often than the frame checks in would tell us nothing new.
 const REFRESH_MS = 60_000;
 
-// "Display online" while the frame keeps its check-in schedule. Links to the
-// poster it's showing.
+// "Display online · 72%" (battery) while the frame keeps its check-in
+// schedule. Links to the poster it's showing.
 export function DisplayStatus({ tone = "light" }: { tone?: "light" | "dark" }) {
   const [frame, setFrame] = useState<FrameStatus | null | undefined>(undefined);
 
@@ -31,7 +31,12 @@ export function DisplayStatus({ tone = "light" }: { tone?: "light" | "dark" }) {
   if (!frame) return <span className="min-h-11" aria-hidden />;
 
   const online = Boolean(frame.lastSeenAt) && !frame.late;
-  const text = online ? "Display online" : frame.lastSeenAt ? `Display offline · ${ago(frame.lastSeenAt)}` : "Display not seen yet";
+  const battery = frame.batteryPercent !== null ? ` · ${frame.batteryPercent}%` : "";
+  const text = online
+    ? `Display online${battery}`
+    : frame.lastSeenAt
+      ? `Display offline · ${ago(frame.lastSeenAt)}`
+      : "Display not seen yet";
   const content = (
     <>
       <span className={`block size-2 shrink-0 ${online ? "bg-online" : "bg-faint"}`} aria-hidden />

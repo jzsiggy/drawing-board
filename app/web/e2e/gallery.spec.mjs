@@ -28,13 +28,16 @@ async function allImagesLoaded(locator) {
 await stroke(page, page.getByRole("img", { name: "Drawing canvas" }), [[0.2, 0.8], [0.5, 0.2], [0.8, 0.8]]);
 await makePoster(page);
 await poster().waitFor({ timeout: 30000 });
-await visible(page.getByRole("button", { name: "Send to frame" })).click();
-await text(/Sent\. It shows up/).waitFor({ timeout: 10000 });
+const resultUrl = page.url();
+await page.waitForFunction((el) => !el.disabled, await visible(page.getByRole("button", { name: "Send to display" })).elementHandle());
+await visible(page.getByRole("button", { name: "Send to display" })).click();
+await page.waitForURL("**/sent");
 await frameChecksIn();
-await text("On the frame now").waitFor({ timeout: 15000 });
+await visible(page.getByRole("heading", { name: "On the display" })).waitFor({ timeout: 15000 });
+await page.goto(resultUrl);
 
 // Its page in the gallery.
-await visible(page.getByRole("link", { name: "Gallery" })).click();
+await visible(page.getByRole("link", { name: "Save to gallery without displaying" })).click();
 await page.waitForURL("**/gallery/**");
 const drawingUrl = page.url().split("?")[0];
 await visible(page.getByRole("heading", { name: /^Version 1/ })).waitFor();
@@ -62,7 +65,7 @@ check(
 await visible(page.getByRole("button", { name: "Another version" })).click();
 await page.waitForURL("**/result/**");
 await poster().waitFor({ timeout: 30000 });
-await visible(page.getByRole("link", { name: "Gallery" })).click();
+await visible(page.getByRole("link", { name: "Save to gallery without displaying" })).click();
 await page.waitForURL("**/gallery/**");
 await visible(page.getByRole("heading", { name: "Version 2 of 2" })).waitFor();
 check("a new version appears and is selected", true);

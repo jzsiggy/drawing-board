@@ -1,5 +1,6 @@
-// GET /api/images/sketch/:drawingId, /api/images/poster/:generationId and
-// /api/images/thumb/:generationId: stable image addresses for <img> tags.
+// GET /api/images/sketch/:drawingId, and /api/images/{poster,thumb,preview}/
+// :generationId: stable image addresses for <img> tags. "preview" is the
+// poster dithered to the panel's inks.
 // Each redirects to a fresh short-lived signed Storage link, so pages that
 // stay open (or stay alive in the background) never hold an expired one.
 
@@ -22,11 +23,15 @@ export async function GET(_request: Request, ctx: RouteContext<"/api/images/[kin
   if (kind === "sketch") {
     bucket = "sketches";
     path = (await supabase.from("drawings").select("sketch_path").eq("id", id).maybeSingle()).data?.sketch_path;
-  } else if (kind === "poster" || kind === "thumb") {
+  } else if (kind === "poster" || kind === "thumb" || kind === "preview") {
     bucket = "generations";
-    const { data } = await supabase.from("generations").select("signed_path, thumb_path").eq("id", id).maybeSingle();
+    const { data } = await supabase
+      .from("generations")
+      .select("signed_path, thumb_path, preview_path")
+      .eq("id", id)
+      .maybeSingle();
     // Posters made before thumbnails existed fall back to the full image.
-    path = kind === "thumb" ? (data?.thumb_path ?? data?.signed_path) : data?.signed_path;
+    path = { poster: data?.signed_path, thumb: data?.thumb_path ?? data?.signed_path, preview: data?.preview_path }[kind];
   } else {
     return jsonError(404, "No such image.");
   }
