@@ -1,5 +1,6 @@
 // Creating and running a generation: drawing -> image model -> signed poster.
 
+import { cleanSuggestedTitle } from "@/lib/posters";
 import type { StrokeDoc } from "@/lib/strokes";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { TablesUpdate } from "@/lib/supabase/database.types";
@@ -48,7 +49,7 @@ export async function runGeneration(id: string) {
 
     const { data: generation, error } = await supabase
       .from("generations")
-      .select("prompt, drawing:drawings(sketch_path, artist:people(signature_strokes))")
+      .select("prompt, drawing_id, drawing:drawings(title, sketch_path, artist:people(signature_strokes))")
       .eq("id", id)
       .single();
     if (error) throw error;
@@ -80,14 +81,22 @@ export async function runGeneration(id: string) {
     // generating screen shows this as "Fitting it to the display's six inks").
     await update({ image_path: imagePath, signed_path: signedPath, thumb_path: thumb });
 
-    // The poster is done either way; without a preview the toggle says so.
-    let preview: string | null = previewPath(id);
-    try {
-      await upload(preview, await makeEinkPreview(signed), "image/png");
-    } catch (e) {
-      console.error(`Generation ${id}: no e-ink preview:`, e);
-      preview = null;
-    }
+    // The poster is done either way; without a preview the toggle says so,
+    // and without a title it's "Untitled".
+    const makePreview = async () => {
+      const path = previewPath(id);
+      try {
+        await upload(path, await makeEinkPreview(signed), "image/png");
+        return path;
+      } catch (e) {
+        console.error(`Generation ${id}: no e-ink preview:`, e);
+        return null;
+      }
+    };
+    const [preview] = await Promise.all([
+      makePreview(),
+      drawing.title ? null : nameDrawing(generation.drawing_id, poster),
+    ]);
     await update({ status: "succeeded", preview_path: preview, finished_at: new Date().toISOString() });
   } catch (e) {
     console.error(`Generation ${id} failed:`, e);
@@ -97,5 +106,18 @@ export async function runGeneration(id: string) {
     await update({ status: "failed", error: message, finished_at: new Date().toISOString() }).catch((err) =>
       console.error(`Couldn't mark generation ${id} as failed:`, err),
     );
+  }
+}
+
+// Titles an untitled drawing from its poster, unless someone named it while
+// the poster was being made.
+async function nameDrawing(drawingId: string, poster: Buffer) {
+  try {
+    const title = cleanSuggestedTitle(await getImageGenerator().suggestTitle(poster));
+    if (!title) return;
+    const { error } = await createAdminClient().from("drawings").update({ title }).eq("id", drawingId).is("title", null);
+    if (error) throw error;
+  } catch (e) {
+    console.error(`Drawing ${drawingId}: no suggested title:`, e);
   }
 }

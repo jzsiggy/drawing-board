@@ -148,9 +148,14 @@ for (const [label, filter] of [["Shown on display", "shown"], ["Mine", "mine"], 
 await openGallery("?filter=shown");
 check("'Shown on display' features the version that was shown", (await card(first).getAttribute("href")) === `/gallery/${firstId}`);
 
-// Untitled posters, and old links that named a drawing.
-const untitled = await newPoster("");
+// Suggested and cleared titles, and old links that named a drawing.
+const untitled = await newPoster();
 await page.goto(BASE + `/gallery/${untitled}`);
+const suggested = await visible(page.getByRole("heading", { level: 1 })).textContent();
+check("a suggested title shows on the poster's page", /^(Harbour at Dusk|Summer Express|The Red Hills|Night Garden)$/.test(suggested));
+const [{ drawing_id: untitledDrawing }] = await selectRows("generations", `id=eq.${untitled}&select=drawing_id`);
+await page.request.patch(BASE + `/api/drawings/${untitledDrawing}`, { data: { title: "" } });
+await page.reload();
 check("a poster without a title is called Untitled", await appears(heading("Untitled")));
 await page.goto(BASE + `/gallery/${drawingId}`);
 await page.waitForURL(`**/gallery/${secondId}`, { timeout: 10000 }).catch(() => {});

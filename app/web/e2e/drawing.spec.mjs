@@ -1,6 +1,6 @@
 // The canvas: inks, tools, undo/redo/clear, layout on a phone, a fresh
-// canvas every time you come back, and step 1 (the poster's title).
-import { addYourself, BASE, check, launch, runId, screenshot, stroke } from "./lib.mjs";
+// canvas every time you come back, and Make it a poster.
+import { addYourself, check, launch, runId, screenshot, stroke } from "./lib.mjs";
 
 const { newPhone, finish } = await launch();
 const page = await newPhone();
@@ -80,30 +80,12 @@ check("the canvas is blank after the browser's Back", await make().isDisabled())
 check("the ink resets to black", (await radio("Black").getAttribute("aria-checked")) === "true");
 check("the tool resets to the fine pen", (await button("Fine pen").getAttribute("aria-pressed")) === "true");
 
-// Step 1: the title.
+// Make it a poster: straight to the poster being made, no title to type.
 await stroke(page, canvas, [[0.3, 0.3], [0.6, 0.6], [0.3, 0.7]]);
 await make().click();
-await page.waitForURL("**/draw/*/poster");
-const step1 = page.url();
-const title = page.getByLabel("Poster title").filter({ visible: true });
-await page.waitForFunction((el) => !el.disabled, await title.elementHandle());
-check("step 1 shows the sketch", await page.getByRole("img", { name: "Your sketch" }).isVisible());
-check("step 1 says which step it is", await page.getByText("Step 1 of 3").filter({ visible: true }).isVisible());
-await title.fill("Left behind");
-await screenshot(page, "drawing-2-title");
-await page.getByRole("link", { name: "Sketch" }).click();
-await page.waitForURL("**/draw?from=**");
-await canvas.waitFor();
-check("'Sketch' goes back to the drawing, strokes kept", await make().isEnabled());
-await page.goto(step1);
-await page.waitForFunction((el) => !el.disabled, await title.elementHandle());
-check("the title field starts empty again", (await title.inputValue()) === "");
-
-await title.fill("x".repeat(70));
-check("titles stop at 60 characters", (await title.inputValue()).length === 60);
-
-const missing = await page.goto(BASE + "/draw/00000000-0000-0000-0000-000000000000/poster");
-await page.getByText("This page could not be found").waitFor({ timeout: 10000 }).catch(() => {});
-check("step 1 for a drawing that doesn't exist says so", missing && (await page.getByText("This page could not be found").isVisible()));
+await page.waitForURL("**/result/**");
+check("Make it a poster opens the poster being made", true);
+check("…without asking for a title", (await page.getByLabel("Poster title").filter({ visible: true }).count()) === 0);
+await screenshot(page, "drawing-2-generating");
 
 await finish();

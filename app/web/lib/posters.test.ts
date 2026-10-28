@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { displayTitle, posterTitleSchema } from "./posters";
+import { cleanSuggestedTitle, displayTitle, posterTitleSchema } from "./posters";
 
 describe("posterTitleSchema", () => {
   it("trims, and turns blank into no title", () => {
@@ -19,5 +19,20 @@ describe("displayTitle", () => {
   it("shows Untitled when there's no title", () => {
     expect(displayTitle(null)).toBe("Untitled");
     expect(displayTitle("Fern")).toBe("Fern");
+  });
+});
+
+describe("cleanSuggestedTitle", () => {
+  it("strips quotes, markdown, a label and a closing full stop", () => {
+    expect(cleanSuggestedTitle('"Harbour at Dusk"')).toBe("Harbour at Dusk");
+    expect(cleanSuggestedTitle("**Title:** Summer Express.\nA poster of a train.")).toBe("Summer Express");
+    expect(cleanSuggestedTitle("“The Red Hills”")).toBe("The Red Hills");
+  });
+
+  it("cuts long titles at a word, and gives up on empty ones", () => {
+    const long = cleanSuggestedTitle("word ".repeat(20));
+    expect(long?.length).toBeLessThanOrEqual(60);
+    expect(long?.endsWith("word")).toBe(true);
+    expect(cleanSuggestedTitle('  ""  ')).toBeNull();
   });
 });

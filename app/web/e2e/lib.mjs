@@ -82,16 +82,18 @@ export async function addYourself(page, name) {
   await page.getByRole("img", { name: "Drawing canvas" }).waitFor();
 }
 
-// "Make it a poster" on the canvas, then step 1: an optional title, then
-// "Generate poster". Lands on the poster's page.
+// "Make it a poster" on the canvas. Lands on the poster's page while it's
+// being made. The model titles it; pass a title to rename it straight away
+// (before the suggestion lands, which then leaves it alone), so a spec can
+// find its posters.
 export async function makePoster(page, title) {
   await page.getByRole("button", { name: "Make it a poster" }).filter({ visible: true }).click();
-  await page.waitForURL("**/draw/*/poster");
-  const field = page.getByLabel("Poster title").filter({ visible: true });
-  await page.waitForFunction((el) => !el.disabled, await field.elementHandle());
-  if (title !== undefined) await field.fill(title);
-  await page.getByRole("button", { name: "Generate poster" }).filter({ visible: true }).click();
   await page.waitForURL("**/result/**");
+  if (!title) return;
+  const id = page.url().split("/result/")[1];
+  const { drawingId } = await (await page.request.get(`${BASE}/api/generations/${id}`)).json();
+  const renamed = await page.request.patch(`${BASE}/api/drawings/${drawingId}`, { data: { title } });
+  if (!renamed.ok()) throw new Error(`Couldn't rename the poster: ${renamed.status()}`);
 }
 
 // Unique per run, so specs don't trip over people from earlier runs.

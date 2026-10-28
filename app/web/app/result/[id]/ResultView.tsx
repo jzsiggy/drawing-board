@@ -10,6 +10,8 @@ import { buttonClass } from "@/components/buttonClass";
 import { useFrame } from "@/components/useFrame";
 import { useResetOnLeave } from "@/components/useResetOnLeave";
 import { estimateProgress, type Stage } from "@/lib/generate/progress";
+import { displayTitle } from "@/lib/posters";
+import { TitleEditor } from "./TitleEditor";
 
 const POLL_MS = 2000;
 
@@ -24,15 +26,17 @@ type Generation =
 interface Props {
   generationId: string;
   drawingId: string;
-  title: string;
+  // Null until named; the model suggests one while the poster is made.
+  title: string | null;
   styleName: string;
   artistName: string;
 }
 
-// Steps 2 and 3 of 3: the poster being made, then the poster.
+// Steps 1 and 2 of 2: the poster being made, then the poster.
 export function ResultView(props: Props) {
   const { generationId } = props;
   const [generation, setGeneration] = useState<Generation>({ status: "pending", stage: "queued" });
+  const [title, setTitle] = useState(props.title);
 
   // Poll until the poster is done or has failed.
   const finished = generation.status === "succeeded" || generation.status === "failed";
@@ -43,6 +47,7 @@ export function ResultView(props: Props) {
       const res = await fetch(`/api/generations/${generationId}`, { cache: "no-store" }).catch(() => null);
       if (stopped || !res?.ok) return;
       const body = await res.json();
+      setTitle(body.title ?? null);
       if (body.status === "succeeded") setGeneration({ status: "succeeded", imageUrl: body.imageUrl });
       else if (body.status === "failed") setGeneration({ status: "failed", error: body.error ?? "Something went wrong." });
       else setGeneration({ status: body.status, stage: body.stage ?? "queued" });
@@ -55,8 +60,10 @@ export function ResultView(props: Props) {
     };
   }, [generationId, finished]);
 
-  if (generation.status === "succeeded") return <Poster {...props} imageUrl={generation.imageUrl} />;
-  return <Generating {...props} generation={generation} />;
+  if (generation.status === "succeeded") {
+    return <Poster {...props} title={title} onRenamed={setTitle} imageUrl={generation.imageUrl} />;
+  }
+  return <Generating {...props} title={title} generation={generation} />;
 }
 
 function Generating({
@@ -85,11 +92,11 @@ function Generating({
 
   return (
     <div className="flex min-h-dvh flex-col">
-      <BackHeader label="Step 2 of 3" />
+      <BackHeader label="Step 1 of 2" />
       <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-7 px-5 pt-8 pb-5" aria-live="polite">
         <div className="flex flex-col gap-2">
           <h1 className="text-[44px] leading-[42px]">{failed ? "That didn’t work" : "Turning your sketch into a poster"}</h1>
-          <p className="text-sm text-muted">{failed ? generation.error : `${title} · ${styleName}`}</p>
+          <p className="text-sm text-muted">{failed ? generation.error : title ? `${title} · ${styleName}` : styleName}</p>
         </div>
 
         {/* The sketch, faded, with a scan line sweeping down it. */}
@@ -160,11 +167,21 @@ function Generating({
   );
 }
 
-function Poster({ generationId, drawingId, title, styleName, artistName, imageUrl }: Props & { imageUrl: string }) {
+function Poster({
+  generationId,
+  drawingId,
+  title,
+  onRenamed,
+  styleName,
+  artistName,
+  imageUrl,
+}: Props & { onRenamed: (title: string | null) => void; imageUrl: string }) {
   const router = useRouter();
   const { frame, send, sending, error } = useFrame(generationId);
   const [view, setView] = useState<"generated" | "eink">("generated");
   const [previewMissing, setPreviewMissing] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const stopEditing = useCallback(() => setEditing(false), []);
 
   useResetOnLeave(useCallback(() => setView("generated"), []));
 
@@ -177,15 +194,36 @@ function Poster({ generationId, drawingId, title, styleName, artistName, imageUr
 
   return (
     <div className="flex min-h-dvh flex-col">
-      <BackHeader href={`/draw/${drawingId}/poster`} back="Title" label="Step 3 of 3" />
+      <BackHeader href={`/draw?from=${drawingId}`} back="Sketch" label="Step 2 of 2" />
       <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-4 px-5 pt-6 pb-5">
-        <div className="flex items-end justify-between gap-3">
-          <div className="flex min-w-0 flex-col gap-1">
-            <h1 className="truncate text-4xl leading-[34px]">{title}</h1>
-            <p className="text-sm text-muted">
-              {styleName} · by {artistName}
-            </p>
+        {editing && (
+          <TitleEditor
+            drawingId={drawingId}
+            title={title}
+            onSaved={(saved) => {
+              onRenamed(saved);
+              setEditing(false);
+            }}
+            onCancel={stopEditing}
+          />
+        )}
+        {!editing && (
+          <div className="flex items-baseline gap-2">
+            <h1 className="min-w-0 text-4xl leading-[34px] break-words">{displayTitle(title)}</h1>
+            <button
+              type="button"
+              onClick={() => setEditing(true)}
+              aria-label="Edit title"
+              className="min-h-11 shrink-0 text-xs text-primary underline underline-offset-2"
+            >
+              Edit
+            </button>
           </div>
+        )}
+        <div className="-mt-2 flex items-center justify-between gap-3">
+          <p className="text-sm text-muted">
+            {styleName} · by {artistName}
+          </p>
           <div role="radiogroup" aria-label="Preview" className="flex shrink-0 border border-ink">
             {(
               [

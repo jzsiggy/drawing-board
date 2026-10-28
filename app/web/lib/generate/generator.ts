@@ -3,11 +3,15 @@
 
 import { env } from "@/lib/env";
 import { FakeImageGenerator } from "./fake";
-import { DEFAULT_IMAGE_MODEL, GeminiImageGenerator } from "./gemini";
+import { DEFAULT_IMAGE_MODEL, DEFAULT_TITLE_MODEL, GeminiImageGenerator } from "./gemini";
 import type { ImageGenerator } from "./types";
 
 // IMAGE_GENERATOR=fake (local development and tests) avoids spending credits.
 export function getImageGenerator(): ImageGenerator {
   if (process.env.IMAGE_GENERATOR === "fake") return new FakeImageGenerator();
-  return new GeminiImageGenerator(env.geminiApiKey(), process.env.IMAGE_MODEL || DEFAULT_IMAGE_MODEL);
+  return new GeminiImageGenerator(
+    env.geminiApiKey(),
+    process.env.IMAGE_MODEL || DEFAULT_IMAGE_MODEL,
+    process.env.TITLE_MODEL || DEFAULT_TITLE_MODEL,
+  );
 }

@@ -3,6 +3,7 @@ import sharp from "sharp";
 import type { GenerateInput, ImageGenerator } from "./types";
 
 const TINTS = ["#c4302b", "#2a5bb8", "#2f8a4a", "#e8742a"];
+const TITLES = ["Harbour at Dusk", "Summer Express", "The Red Hills", "Night Garden"];
 
 // Stand-in for the real model during local development and tests: waits a
 // moment and returns a tinted, posterised copy of the sketch. Each call uses
@@ -12,6 +13,7 @@ const TINTS = ["#c4302b", "#2a5bb8", "#2f8a4a", "#e8742a"];
 export class FakeImageGenerator implements ImageGenerator {
   readonly model = "fake";
   private static calls = 0;
+  private static titles = 0;
 
   async generate({ sketch }: GenerateInput): Promise<Buffer> {
     await new Promise((resolve) => setTimeout(resolve, 2500));
@@ -29,5 +31,9 @@ export class FakeImageGenerator implements ImageGenerator {
       .composite([{ input: band, top: 60 + ((call * 97) % 1000), left: 0 }])
       .png()
       .toBuffer();
+  }
+
+  async suggestTitle(): Promise<string> {
+    return TITLES[FakeImageGenerator.titles++ % TITLES.length];
   }
 }

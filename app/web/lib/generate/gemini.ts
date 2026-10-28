@@ -6,6 +6,16 @@ import { GenerationError, type GenerateInput, type ImageGenerator } from "./type
 // Nano Banana 2.1. Set IMAGE_MODEL to compare others, e.g. gemini-3-pro-image
 // (Nano Banana Pro).
 export const DEFAULT_IMAGE_MODEL = "gemini-nano-banana-2.1";
+// Names finished posters: about a second, where gemini-3.8-flash took 2-8.
+// Set TITLE_MODEL to try another.
+export const DEFAULT_TITLE_MODEL = "gemini-3.5-flash-lite";
+// The poster waits for its title, so don't wait long.
+const TITLE_TIMEOUT_MS = 15_000;
+
+const TITLE_PROMPT =
+  "This is a retro poster made from someone's sketch. Suggest a title for it, like the name of a " +
+  "vintage travel or exhibition poster: one to five words, about what the poster shows. " +
+  "Reply with the title only, no quotes.";
 
 export class GeminiImageGenerator implements ImageGenerator {
   private readonly client: GoogleGenAI;
@@ -13,6 +23,7 @@ export class GeminiImageGenerator implements ImageGenerator {
   constructor(
     apiKey: string,
     readonly model: string,
+    private readonly titleModel: string = DEFAULT_TITLE_MODEL,
   ) {
     this.client = new GoogleGenAI({ apiKey });
   }
@@ -47,5 +58,20 @@ export class GeminiImageGenerator implements ImageGenerator {
       );
     }
     return sharp(Buffer.from(data, "base64")).png().toBuffer();
+  }
+
+  async suggestTitle(poster: Buffer): Promise<string> {
+    const image = await sharp(poster).resize(512).jpeg({ quality: 80 }).toBuffer();
+    const response = await this.client.models.generateContent({
+      model: this.titleModel,
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: TITLE_PROMPT }, { inlineData: { mimeType: "image/jpeg", data: image.toString("base64") } }],
+        },
+      ],
+      config: { abortSignal: AbortSignal.timeout(TITLE_TIMEOUT_MS) },
+    });
+    return response.text ?? "";
   }
 }

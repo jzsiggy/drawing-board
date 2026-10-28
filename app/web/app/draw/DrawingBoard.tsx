@@ -74,7 +74,7 @@ export default function DrawingBoard({ personName, personSignature, initialStrok
     if (next !== "eraser") setBrush(next);
   }
 
-  // Saves the drawing, then asks for a title on the next step.
+  // Saves the drawing and starts its poster; the model names it.
   async function makePoster() {
     setStatus({ kind: "saving" });
     try {
@@ -86,7 +86,9 @@ export default function DrawingBoard({ personName, personSignature, initialStrok
       const saved = await fetch("/api/drawings", { method: "POST", body: form });
       if (!saved.ok) throw new Error((await saved.json().catch(() => null))?.error ?? "Couldn't save your drawing.");
       const { id } = await saved.json();
-      router.push(`/draw/${id}/poster`);
+      const started = await fetch(`/api/drawings/${id}/generations`, { method: "POST" });
+      if (!started.ok) throw new Error((await started.json().catch(() => null))?.error ?? "Couldn't start your poster.");
+      router.push(`/result/${(await started.json()).id}`);
     } catch (e) {
       setStatus({ kind: "error", message: e instanceof Error ? e.message : "Couldn't save your drawing." });
     }

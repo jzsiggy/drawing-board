@@ -12,6 +12,8 @@ export interface ImageGenerator {
   readonly model: string;
   // Returns the poster as a PNG.
   generate(input: GenerateInput): Promise<Buffer>;
+  // A short title for a finished poster, for drawings that have none yet.
+  suggestTitle(poster: Buffer): Promise<string>;
 }
 
 // A failure worth showing to the person, e.g. the model refused the image.

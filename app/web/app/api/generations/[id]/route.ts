@@ -1,4 +1,5 @@
-// GET /api/generations/:id: status of a poster, with a link to it once done.
+// GET /api/generations/:id: status of a poster, with a link to it once done,
+// and the drawing's title (which the model may have just suggested).
 
 import { jsonError } from "@/lib/api";
 import { isStale } from "@/lib/generate/run";
@@ -14,7 +15,7 @@ export async function GET(_request: Request, ctx: RouteContext<"/api/generations
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("generations")
-    .select("id, drawing_id, status, error, image_path, signed_path, created_at")
+    .select("id, drawing_id, status, error, image_path, signed_path, created_at, drawing:drawings(title)")
     .eq("id", id)
     .maybeSingle();
   if (error) throw error;
@@ -42,5 +43,13 @@ export async function GET(_request: Request, ctx: RouteContext<"/api/generations
   // model, or being fitted to the panel's inks.
   const stage = status === "pending" ? "queued" : status === "running" ? (data.image_path ? "fitting" : "painting") : null;
 
-  return Response.json({ id: data.id, drawingId: data.drawing_id, status, stage, error: message, imageUrl });
+  return Response.json({
+    id: data.id,
+    drawingId: data.drawing_id,
+    title: data.drawing?.title ?? null,
+    status,
+    stage,
+    error: message,
+    imageUrl,
+  });
 }
