@@ -4,32 +4,26 @@ import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense } from "react";
 
-import { LocalDate } from "@/components/LocalDate";
-import { listGallery, parseFilter, type GalleryDrawing, type GalleryFilter } from "@/lib/gallery";
+import { LocalDate, LocalTime } from "@/components/LocalDate";
+import { TabPage } from "@/components/TabPage";
+import { listGallery, parseFilter, type GalleryFilter, type PosterCard } from "@/lib/gallery";
 import { getCurrentPerson } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Gallery · Sketch to poster" };
 
 const FILTERS: { value: GalleryFilter; label: string; href: string }[] = [
-  { value: "all", label: "Everyone", href: "/gallery" },
+  { value: "all", label: "All", href: "/gallery" },
+  { value: "shown", label: "Shown on display", href: "/gallery?filter=shown" },
   { value: "mine", label: "Mine", href: "/gallery?filter=mine" },
-  { value: "frame", label: "Been on the frame", href: "/gallery?filter=frame" },
 ];
-const THUMBS_SHOWN = 4;
 
 export default function GalleryPage({ searchParams }: PageProps<"/gallery">) {
   return (
-    <main className="mx-auto flex max-w-3xl flex-col gap-6 px-4 pt-8 pb-16">
-      <header className="flex items-end justify-between gap-4">
-        <h1 className="font-display text-4xl font-bold tracking-tight">Gallery</h1>
-        <Link href="/draw" className="pb-1 font-mono text-xs tracking-widest text-muted uppercase hover:text-ink">
-          Draw →
-        </Link>
-      </header>
+    <TabPage className="gap-5 pt-8 pb-8">
       <Suspense fallback={<GallerySkeleton />}>
         <Gallery searchParams={searchParams} />
       </Suspense>
-    </main>
+    </TabPage>
   );
 }
 
@@ -37,11 +31,16 @@ async function Gallery({ searchParams }: { searchParams: PageProps<"/gallery">["
   await connection();
   const filter = parseFilter((await searchParams).filter);
   const person = await getCurrentPerson();
-  const drawings = await listGallery(filter, person?.id ?? null);
+  const { onDisplay, cards, posterCount } = await listGallery(filter, person?.id ?? null);
 
   return (
     <>
-      <nav className="-mx-4 flex gap-2 overflow-x-auto px-4" aria-label="Show">
+      <div className="flex items-baseline justify-between">
+        <h1 className="text-[44px] leading-[42px]">Gallery</h1>
+        <span className="text-sm text-muted">{posterCount === 1 ? "1 poster" : `${posterCount} posters`}</span>
+      </div>
+
+      <nav className="flex flex-wrap gap-2" aria-label="Show">
         {FILTERS.map((f) => (
           <Link
             key={f.value}
@@ -49,8 +48,8 @@ async function Gallery({ searchParams }: { searchParams: PageProps<"/gallery">["
             replace
             scroll={false}
             aria-current={f.value === filter ? "page" : undefined}
-            className={`shrink-0 rounded-full border px-4 py-1.5 text-sm transition ${
-              f.value === filter ? "border-ink bg-ink text-card" : "border-line hover:border-ink"
+            className={`flex h-11 items-center border px-3.5 text-sm ${
+              f.value === filter ? "border-ink bg-ink text-white" : "border-line bg-card text-ink"
             }`}
           >
             {f.label}
@@ -58,12 +57,14 @@ async function Gallery({ searchParams }: { searchParams: PageProps<"/gallery">["
         ))}
       </nav>
 
-      {drawings.length === 0 ? (
+      {onDisplay && <OnDisplayCard card={onDisplay} />}
+
+      {!onDisplay && cards.length === 0 ? (
         <Empty filter={filter} hasPerson={Boolean(person)} />
       ) : (
-        <div className="grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3">
-          {drawings.map((drawing) => (
-            <DrawingCard key={drawing.id} drawing={drawing} />
+        <div className="grid grid-cols-2 gap-x-3 gap-y-4 sm:grid-cols-3">
+          {cards.map((card) => (
+            <Card key={card.id} card={card} />
           ))}
         </div>
       )}
@@ -71,48 +72,47 @@ async function Gallery({ searchParams }: { searchParams: PageProps<"/gallery">["
   );
 }
 
-function DrawingCard({ drawing }: { drawing: GalleryDrawing }) {
-  const posters = drawing.versions.filter((v) => v.status === "succeeded");
-  const onFrame = posters.some((v) => v.onFrame);
-  const more = posters.length - THUMBS_SHOWN;
-
+function OnDisplayCard({ card }: { card: PosterCard }) {
   return (
-    <Link href={`/gallery/${drawing.id}`} className="group flex min-w-0 flex-col gap-2">
-      <div className="relative aspect-[3/4] overflow-hidden rounded-md bg-white shadow-[0_1px_3px_rgb(0_0_0/0.12)] transition group-hover:shadow-[0_2px_10px_rgb(0_0_0/0.16)]">
-        <img
-          src={`/api/images/sketch/${drawing.id}`}
-          alt={`Drawing by ${drawing.artistName}`}
-          loading="lazy"
-          className="size-full object-cover"
-        />
-        {onFrame && (
-          <span className="absolute top-2 left-2 rounded-full bg-ink/85 px-2 py-0.5 font-mono text-[10px] tracking-widest text-card uppercase">
-            On the frame
+    <Link href={`/gallery/${card.id}`} className="flex gap-3.5 bg-card p-3 text-ink">
+      <img src={`/api/images/thumb/${card.id}`} alt={`${card.title}, on the display now`} className="h-24 w-18 shrink-0 bg-sunken object-cover" />
+      <span className="flex min-w-0 flex-1 flex-col justify-center gap-1.5">
+        <span className="flex h-[22px] items-center gap-1.5 self-start bg-online px-2.5 text-[11px] font-medium tracking-[0.06em] text-white uppercase">
+          <span className="block size-1.5 bg-white" aria-hidden />
+          On display now
+        </span>
+        <span className="truncate text-lg leading-[21px]">{card.title}</span>
+        <span className="truncate text-sm leading-4 text-muted">
+          {card.artistName}
+          {card.shownSince && (
+            <>
+              {" · since "}
+              <LocalTime iso={card.shownSince} />
+            </>
+          )}
+        </span>
+      </span>
+    </Link>
+  );
+}
+
+function Card({ card }: { card: PosterCard }) {
+  return (
+    <Link href={`/gallery/${card.id}`} className="flex min-w-0 flex-col gap-2 text-ink">
+      <span className="relative block aspect-[3/4] bg-sunken">
+        <img src={`/api/images/thumb/${card.id}`} alt={card.title} loading="lazy" className="size-full object-cover" />
+        {card.versions > 1 && (
+          <span className="absolute top-1.5 right-1.5 bg-ink/85 px-1.5 py-0.5 text-[11px] font-medium text-white">
+            {card.versions} versions
           </span>
         )}
-      </div>
-      <div className="flex items-baseline justify-between gap-2 text-xs">
-        <span className="truncate font-mono tracking-wider uppercase">{drawing.artistName}</span>
-        <span className="shrink-0 text-muted">
-          <LocalDate iso={drawing.createdAt} />
+      </span>
+      <span className="flex flex-col gap-0.5">
+        <span className="truncate text-sm leading-4 font-medium">{card.title}</span>
+        <span className="truncate text-xs leading-[14px] text-muted">
+          {card.artistName} · <LocalDate iso={card.createdAt} />
         </span>
-      </div>
-      {posters.length > 0 && (
-        <div className="flex items-center gap-1.5">
-          {posters.slice(0, THUMBS_SHOWN).map((v, i) => (
-            <img
-              key={v.id}
-              src={`/api/images/thumb/${v.id}`}
-              alt={`Poster version ${i + 1}${v.onFrame ? ", on the frame now" : v.beenOnFrame ? ", has been on the frame" : ""}`}
-              loading="lazy"
-              className={`aspect-[3/4] h-12 rounded-sm bg-card object-cover opacity-90 ${
-                v.onFrame ? "ring-2 ring-accent" : v.beenOnFrame ? "ring-1 ring-ink" : ""
-              }`}
-            />
-          ))}
-          {more > 0 && <span className="text-xs text-muted">+{more}</span>}
-        </div>
-      )}
+      </span>
     </Link>
   );
 }
@@ -120,23 +120,23 @@ function DrawingCard({ drawing }: { drawing: GalleryDrawing }) {
 function Empty({ filter, hasPerson }: { filter: GalleryFilter; hasPerson: boolean }) {
   if (filter === "mine" && !hasPerson) {
     return (
-      <p className="text-muted">
-        <Link href="/who" className="text-ink underline">
+      <p className="text-sm text-muted">
+        <Link href="/who" className="text-primary underline">
           Pick who you are
         </Link>{" "}
-        to see your drawings.
+        to see your posters.
       </p>
     );
   }
   const text = {
-    all: "No drawings yet.",
-    mine: "You haven't drawn anything yet.",
-    frame: "Nothing has been on the frame yet.",
+    all: "No posters yet.",
+    mine: "You haven't made a poster yet.",
+    shown: "Nothing has been on the display yet.",
   }[filter];
   return (
-    <p className="text-muted">
+    <p className="text-sm text-muted">
       {text}{" "}
-      <Link href="/draw" className="text-ink underline">
+      <Link href="/draw" className="text-primary underline">
         Draw something
       </Link>
     </p>
@@ -145,11 +145,12 @@ function Empty({ filter, hasPerson }: { filter: GalleryFilter; hasPerson: boolea
 
 function GallerySkeleton() {
   return (
-    <div className="flex animate-pulse flex-col gap-6" aria-hidden>
-      <div className="h-9 w-72 rounded-full bg-line/60" />
+    <div className="flex animate-pulse flex-col gap-5" aria-hidden>
+      <div className="h-[42px] w-40 bg-sunken" />
+      <div className="h-11 w-72 bg-sunken" />
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        {Array.from({ length: 6 }, (_, i) => (
-          <div key={i} className="aspect-[3/4] rounded-md bg-line/60" />
+        {Array.from({ length: 4 }, (_, i) => (
+          <div key={i} className="aspect-[3/4] bg-sunken" />
         ))}
       </div>
     </div>

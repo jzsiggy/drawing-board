@@ -250,7 +250,7 @@ function Poster({ generationId, drawingId, title, styleName, artistName, imageUr
               Edit sketch
             </Link>
           </div>
-          <Link href={`/gallery/${drawingId}?v=${generationId}`} className="flex min-h-11 items-center justify-center text-sm text-primary underline underline-offset-2">
+          <Link href={`/gallery/${generationId}`} className="flex min-h-11 items-center justify-center text-sm text-primary underline underline-offset-2">
             Save to gallery without displaying
           </Link>
         </div>

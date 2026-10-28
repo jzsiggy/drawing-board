@@ -143,3 +143,12 @@ export async function insertRows(table, rows) {
   });
   if (!response.ok) throw new Error(`insert into ${table} returned ${response.status}: ${await response.text()}`);
 }
+
+// Reads rows from the local test database, e.g. selectRows("generations", "id=eq.<id>&select=drawing_id").
+export async function selectRows(table, query) {
+  const response = await fetch(`${process.env.E2E_SUPABASE_URL}/rest/v1/${table}?${query}`, {
+    headers: { apikey: process.env.E2E_SUPABASE_SECRET, Authorization: `Bearer ${process.env.E2E_SUPABASE_SECRET}` },
+  });
+  if (!response.ok) throw new Error(`select from ${table} returned ${response.status}: ${await response.text()}`);
+  return response.json();
+}

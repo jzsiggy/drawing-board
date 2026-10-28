@@ -1,128 +1,124 @@
 /* eslint-disable @next/next/no-img-element -- images come from /api/images redirects */
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { z } from "zod";
 
-import { FramePanel } from "@/components/FramePanel";
-import { LocalDate } from "@/components/LocalDate";
-import { VersionActions } from "@/components/VersionActions";
+import { BackHeader } from "@/components/AppHeader";
+import { LocalDate, LocalTime } from "@/components/LocalDate";
 import { VersionRow } from "@/components/VersionRow";
-import { getGalleryDrawing, type GalleryVersion } from "@/lib/gallery";
+import { featuredPosterOfDrawing, getPoster } from "@/lib/gallery";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { PosterActions } from "./PosterActions";
 
-export const metadata: Metadata = { title: "Drawing · Sketch to poster" };
+export const metadata: Metadata = { title: "Poster · Sketch to poster" };
 
-export default function DrawingPage({ params, searchParams }: PageProps<"/gallery/[id]">) {
+export default function PosterPage({ params }: PageProps<"/gallery/[id]">) {
   return (
-    <main className="mx-auto flex max-w-3xl flex-col gap-6 px-4 pt-6 pb-16">
-      <Suspense fallback={<div className="aspect-[3/4] w-3/5 animate-pulse rounded-md bg-line/60" aria-hidden />}>
-        <Drawing params={params} searchParams={searchParams} />
+    <div className="flex min-h-dvh flex-col">
+      <BackHeader href="/gallery" back="Gallery" />
+      <Suspense fallback={<div className="mx-auto mt-6 aspect-[3/4] w-60 animate-pulse bg-sunken" aria-hidden />}>
+        <Poster params={params} />
       </Suspense>
+    </div>
+  );
+}
+
+async function Poster({ params }: { params: PageProps<"/gallery/[id]">["params"] }) {
+  await connection();
+  const id = z.uuid().safeParse((await params).id);
+  if (!id.success) notFound();
+  const poster = await getPoster(id.data);
+  if (!poster) {
+    // A poster still being made has its own page; an old link may name a drawing.
+    const { data } = await createAdminClient().from("generations").select("status").eq("id", id.data).maybeSingle();
+    if (data && (data.status === "pending" || data.status === "running")) redirect(`/result/${id.data}`);
+    const featured = data ? null : await featuredPosterOfDrawing(id.data);
+    if (featured) redirect(`/gallery/${featured}`);
+    notFound();
+  }
+
+  return (
+    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-5 px-5 pt-6 pb-5">
+      <img
+        src={`/api/images/poster/${poster.id}`}
+        alt={`${poster.title}, by ${poster.artistName}`}
+        className="mx-auto aspect-[3/4] w-60 bg-sunken object-cover"
+      />
+
+      <div className="flex flex-col gap-1">
+        <h1 className="text-4xl leading-[34px]">{poster.title}</h1>
+        <p className="text-sm text-muted">by {poster.artistName}</p>
+      </div>
+
+      <div className="flex items-stretch gap-3.5">
+        <dl className="flex flex-1 flex-col border-t border-line text-sm">
+          <Row label="Style">{poster.styleName}</Row>
+          <Row label="Made">
+            <LocalDate iso={poster.createdAt} long />
+          </Row>
+          <Row label="Last shown">
+            {poster.onFrame ? (
+              "On the display now"
+            ) : poster.lastShownAt ? (
+              <LocalTime iso={poster.lastShownAt} />
+            ) : (
+              "Not yet"
+            )}
+          </Row>
+        </dl>
+        <figure className="flex w-[54px] shrink-0 flex-col gap-1">
+          <img
+            src={`/api/images/sketch/${poster.drawingId}`}
+            alt="The original sketch"
+            className="aspect-[3/4] w-full border border-line bg-white object-cover"
+          />
+          <figcaption className="text-xs text-muted">Sketch</figcaption>
+        </figure>
+      </div>
+
+      {poster.versions.length > 1 && (
+        <section className="flex flex-col gap-2">
+          <h2 className="microcaps text-muted">
+            Version {poster.versions.find((v) => v.id === poster.id)?.number} of {poster.versions.length}
+          </h2>
+          <VersionRow selectedId={poster.id}>
+            {poster.versions.map((v) => (
+              <Link
+                key={v.id}
+                href={`/gallery/${v.id}`}
+                replace
+                scroll={false}
+                aria-current={v.id === poster.id ? "true" : undefined}
+                className="flex w-16 shrink-0 snap-start flex-col gap-1"
+              >
+                <img
+                  src={`/api/images/thumb/${v.id}`}
+                  alt={`Version ${v.number}${v.onFrame ? ", on the display now" : ""}`}
+                  loading="lazy"
+                  className={`aspect-[3/4] w-full bg-sunken object-cover ${v.id === poster.id ? "outline-2 outline-offset-2 outline-ink" : ""}`}
+                />
+                <span className={`text-xs ${v.onFrame ? "font-medium text-online" : "text-muted"}`}>
+                  {v.onFrame ? "On display" : `V${v.number}`}
+                </span>
+              </Link>
+            ))}
+          </VersionRow>
+        </section>
+      )}
+
+      <PosterActions key={poster.id} generationId={poster.id} drawingId={poster.drawingId} />
     </main>
   );
 }
 
-async function Drawing({
-  params,
-  searchParams,
-}: {
-  params: PageProps<"/gallery/[id]">["params"];
-  searchParams: PageProps<"/gallery/[id]">["searchParams"];
-}) {
-  await connection();
-  const id = z.uuid().safeParse((await params).id);
-  if (!id.success) notFound();
-  const drawing = await getGalleryDrawing(id.data);
-  if (!drawing) notFound();
-
-  // ?v=<version> picks one; otherwise the newest finished poster.
-  const { v } = await searchParams;
-  const finished = drawing.versions.filter((x) => x.status === "succeeded");
-  const selected =
-    drawing.versions.find((x) => x.id === v) ?? finished[finished.length - 1] ?? drawing.versions[drawing.versions.length - 1];
-  const number = (version: GalleryVersion) => drawing.versions.indexOf(version) + 1;
-
+function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <>
-      <header className="flex items-baseline justify-between gap-4 text-sm">
-        <Link href="/gallery" className="font-mono text-xs tracking-widest text-muted uppercase hover:text-ink">
-          ← Gallery
-        </Link>
-        <span className="truncate text-muted">
-          {drawing.artistName} · <LocalDate iso={drawing.createdAt} />
-        </span>
-      </header>
-
-      {/* The drawing, then its versions, side by side; swipe to see more. */}
-      <VersionRow selectedId={selected?.id ?? null}>
-        <figure className="flex w-[58%] shrink-0 snap-start flex-col gap-2 sm:w-[30%]">
-          <img
-            src={`/api/images/sketch/${drawing.id}`}
-            alt={`Drawing by ${drawing.artistName}`}
-            className="aspect-[3/4] w-full rounded-md bg-white object-cover shadow-[0_1px_3px_rgb(0_0_0/0.12)]"
-          />
-          <figcaption className="font-mono text-xs tracking-wider text-muted uppercase">Drawing</figcaption>
-        </figure>
-        {drawing.versions.map((version) => (
-          <Link
-            key={version.id}
-            href={`/gallery/${drawing.id}?v=${version.id}`}
-            replace
-            scroll={false}
-            aria-current={version === selected ? "true" : undefined}
-            className="flex w-[58%] shrink-0 snap-start flex-col gap-2 sm:w-[30%]"
-          >
-            <VersionImage version={version} number={number(version)} selected={version === selected} />
-            <span className="flex flex-col font-mono text-xs tracking-wider uppercase">
-              <span className={version === selected ? "" : "text-muted"}>Version {number(version)}</span>
-              {version.onFrame ? (
-                <span className="text-accent">On the frame</span>
-              ) : version.beenOnFrame ? (
-                <span className="text-muted">Was on the frame</span>
-              ) : null}
-            </span>
-          </Link>
-        ))}
-      </VersionRow>
-
-      {selected && (
-        <section className="flex flex-col gap-3">
-          <h1 className="font-display text-2xl font-bold tracking-tight">
-            Version {number(selected)}
-            {drawing.versions.length > 1 && <span className="text-muted"> of {drawing.versions.length}</span>}
-          </h1>
-          {selected.status === "succeeded" && <FramePanel key={selected.id} generationId={selected.id} />}
-          {(selected.status === "pending" || selected.status === "running") && (
-            <p className="text-muted">
-              Still printing.{" "}
-              <Link href={`/result/${selected.id}`} className="text-ink underline">
-                Watch it finish
-              </Link>
-            </p>
-          )}
-        </section>
-      )}
-
-      <VersionActions drawingId={drawing.id} />
-    </>
-  );
-}
-
-function VersionImage({ version, number, selected }: { version: GalleryVersion; number: number; selected: boolean }) {
-  const frame = `aspect-[3/4] w-full rounded-md transition ${selected ? "ring-2 ring-ink ring-offset-2 ring-offset-paper" : ""}`;
-  if (version.status !== "succeeded") {
-    return (
-      <div className={`${frame} flex items-center justify-center bg-card text-sm text-muted`}>Printing…</div>
-    );
-  }
-  return (
-    <img
-      src={`/api/images/poster/${version.id}`}
-      alt={`Poster version ${number}`}
-      loading="lazy"
-      className={`${frame} bg-card object-cover shadow-[0_1px_3px_rgb(0_0_0/0.12)]`}
-    />
+    <div className="flex justify-between gap-2 border-b border-line py-2 leading-4">
+      <dt className="font-medium">{label}</dt>
+      <dd className="text-right text-muted">{children}</dd>
+    </div>
   );
 }

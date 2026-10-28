@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 
-// The drawing page's sideways-scrolling row of versions. Keeps the selected
+// The poster page's sideways-scrolling row of versions. Keeps the selected
 // one (aria-current) in view: on arrival, and when another is picked.
 export function VersionRow({ selectedId, children }: { selectedId: string | null; children: React.ReactNode }) {
   const ref = useRef<HTMLElement>(null);
@@ -19,7 +19,7 @@ export function VersionRow({ selectedId, children }: { selectedId: string | null
   }, [selectedId]);
 
   return (
-    <section ref={ref} className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2" aria-label="Drawing and versions">
+    <section ref={ref} className="-mx-5 flex snap-x snap-mandatory gap-3 overflow-x-auto px-5 pt-1 pb-2" aria-label="Versions">
       {children}
     </section>
   );
