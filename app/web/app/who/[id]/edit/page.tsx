@@ -7,7 +7,7 @@ import type { StrokeDoc } from "@/lib/strokes";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PersonForm } from "../../PersonForm";
 
-export const metadata: Metadata = { title: "Edit · Drawing Board" };
+export const metadata: Metadata = { title: "Edit · Sketch to poster" };
 
 export default function EditPersonPage({ params }: PageProps<"/who/[id]/edit">) {
   return (

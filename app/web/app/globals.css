@@ -1,26 +1,36 @@
 @import "tailwindcss";
 
-/* One light theme on purpose: the app looks like the e-paper it draws for. */
+/* One light theme on purpose: warm paper, square corners and the panel's
+   inks, like a screen-printed poster. */
 :root {
   color-scheme: light;
-  --paper: #eceeeb;
-  --card: #f8f9f7;
-  --ink: #1b1e20;
-  --muted: #687175;
-  --line: #d3d8d5;
-  --accent: #c4302b;
+  --paper: #f4efe6;
+  --card: #ffffff;
+  --sunken: #eae3d6;
+  --line: #ddd5c8;
+  --ink: #161514;
+  --muted: #6b645a;
+  --faint: #8f8d8b;
+  --primary: #1f4e9e;
+  --primary-dark: #163a75;
+  --online: #2e7d32;
+  --accent: #c8102e;
 }
 
 @theme inline {
   --color-paper: var(--paper);
   --color-card: var(--card);
+  --color-sunken: var(--sunken);
+  --color-line: var(--line);
   --color-ink: var(--ink);
   --color-muted: var(--muted);
-  --color-line: var(--line);
+  --color-faint: var(--faint);
+  --color-primary: var(--primary);
+  --color-primary-dark: var(--primary-dark);
+  --color-online: var(--online);
   --color-accent: var(--accent);
-  --font-display: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
-  --font-sans: var(--font-plex), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+  --font-display: var(--font-bebas), Impact, sans-serif;
+  --font-sans: var(--font-space-grotesk), "Helvetica Neue", Arial, sans-serif;
 }
 
 body {
@@ -28,22 +38,33 @@ body {
   color: var(--ink);
 }
 
+/* Headings are poster lettering. */
+h1 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: 0.01em;
+}
+
+/* Small uppercase labels: the app name, step counters, field captions. */
+@utility microcaps {
+  font-size: 12px;
+  line-height: 14px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
 :focus-visible {
-  outline: 2px solid var(--ink);
+  outline: 2px solid var(--primary);
   outline-offset: 2px;
 }
 
-/* Text fields show focus with their own border. */
-input:focus-visible {
-  outline: none;
-}
-
-/* The ink band on the "printing your poster" screen. */
-@keyframes print {
+/* The poster forming over the sketch on the generating screen. */
+@keyframes reveal {
   0% {
-    top: -0.75rem;
+    clip-path: inset(0 0 100% 0);
   }
   100% {
-    top: 100%;
+    clip-path: inset(0 0 0 0);
   }
 }

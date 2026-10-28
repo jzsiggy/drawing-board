@@ -4,13 +4,15 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 
+import { BackHeader } from "@/components/AppHeader";
+import { buttonClass } from "@/components/buttonClass";
 import { StrokeCanvas } from "@/components/canvas/StrokeCanvas";
 import { useStrokeHistory } from "@/components/canvas/useStrokeHistory";
 import { useHydrated } from "@/components/useHydrated";
 import { useResetOnLeave } from "@/components/useResetOnLeave";
 import { SIGNATURE_ASPECT, type StrokeDoc } from "@/lib/strokes";
 
-const SIGNATURE_INK = "#1b1e20";
+const SIGNATURE_INK = "#161514";
 const SIGNATURE_SIZE = 0.012;
 
 interface Props {
@@ -61,20 +63,16 @@ export function PersonForm({ person }: Props) {
   }
 
   return (
-    <main className="mx-auto flex max-w-xl flex-col gap-8 px-4 pt-10 pb-16">
-      <header className="flex flex-col gap-2">
-        <Link href="/who" className="font-mono text-xs tracking-widest text-muted uppercase hover:text-ink">
-          ← Back
-        </Link>
-        <h1 className="font-display text-4xl font-bold tracking-tight">
-          {person ? `Edit ${person.name}` : "Add yourself"}
-        </h1>
-        <p className="text-muted">Your signature goes in the corner of every poster you make.</p>
-      </header>
+    <div className="flex min-h-dvh flex-col">
+      <BackHeader href="/who" back="People" label={person ? "Edit person" : "New person"} />
+      <form onSubmit={save} className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-8 px-5 pt-10 pb-6">
+        <header className="flex flex-col gap-2">
+          <h1 className="text-[44px] leading-[42px]">{person ? `Edit ${person.name}` : "Add your name and signature"}</h1>
+          <p className="text-sm text-muted">Your signature is printed in the corner of each poster, like an artist&rsquo;s mark.</p>
+        </header>
 
-      <form onSubmit={save} className="flex flex-col gap-6">
         <label className="flex flex-col gap-2">
-          <span className="font-mono text-xs tracking-widest text-muted uppercase">Your name</span>
+          <span className="text-sm font-medium">Name</span>
           <input
             id="name"
             value={name}
@@ -83,18 +81,18 @@ export function PersonForm({ person }: Props) {
             disabled={!hydrated}
             autoComplete="name"
             placeholder="Whatever you like to be called"
-            className="h-12 rounded-lg border border-line bg-card px-4 text-lg outline-none placeholder:text-muted focus:border-ink"
+            className="h-12 border border-ink bg-card px-3.5 text-lg outline-none placeholder:text-muted focus:outline-2 focus:outline-offset-2 focus:outline-primary"
           />
         </label>
 
         <div className="flex flex-col gap-2">
-          <div className="flex items-baseline justify-between">
-            <span className="font-mono text-xs tracking-widest text-muted uppercase">Sign here</span>
-            <div className="flex gap-4 font-mono text-xs tracking-widest uppercase">
-              <button type="button" onClick={signature.undo} disabled={!signature.canUndo} className="disabled:text-line">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium">Signature</span>
+            <div className="flex gap-3 text-sm text-primary">
+              <button type="button" onClick={signature.undo} disabled={!signature.canUndo} className="min-h-11 px-1 underline disabled:text-faint">
                 Undo
               </button>
-              <button type="button" onClick={signature.clear} disabled={!signature.strokes.length} className="disabled:text-line">
+              <button type="button" onClick={signature.clear} disabled={!signature.strokes.length} className="min-h-11 px-1 underline disabled:text-faint">
                 Clear
               </button>
             </div>
@@ -108,23 +106,33 @@ export function PersonForm({ person }: Props) {
               size={SIGNATURE_SIZE}
               onStroke={signature.add}
               label="Signature pad"
-              canvasClassName="rounded-lg border border-line bg-white"
+              canvasClassName="border border-line bg-white"
             />
-            {/* Baseline to sign on; purely visual, under the strokes. */}
-            <div className="pointer-events-none absolute right-[8%] bottom-[24%] left-[8%] border-b border-dashed border-line" />
+            {/* The line to sign on, and the hint under it; under the strokes. */}
+            <div className="pointer-events-none absolute right-6 bottom-11 left-6 border-t border-dashed border-faint" />
+            <span className="pointer-events-none absolute bottom-4 left-6 text-xs text-muted">Sign above the line with your finger</span>
           </div>
+        </div>
+
+        <div className="flex items-start gap-3 bg-sunken p-4">
+          <span className="mt-[5px] block size-2 shrink-0 bg-accent" aria-hidden />
+          <p className="text-sm">
+            Signatures go bottom right on the poster, in black or white to stand out, sized to stay legible on the e-ink
+            display.
+          </p>
         </div>
 
         {error && <p className="text-sm text-accent">{error}</p>}
 
-        <button
-          type="submit"
-          disabled={!ready || saving}
-          className="h-12 rounded-full bg-ink font-medium text-card transition disabled:bg-line disabled:text-muted"
-        >
-          {saving ? "Saving…" : person ? "Save changes" : "Start drawing"}
-        </button>
+        <div className="mt-auto flex flex-col gap-2">
+          <button type="submit" disabled={!ready || saving} className={buttonClass("primary")}>
+            {saving ? "Saving…" : person ? "Save changes" : "Save person"}
+          </button>
+          <Link href="/who" className={buttonClass("quiet")}>
+            Cancel
+          </Link>
+        </div>
       </form>
-    </main>
+    </div>
   );
 }

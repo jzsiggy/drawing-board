@@ -9,7 +9,7 @@ import type { StrokeDoc } from "@/lib/strokes";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DrawingBoardLoader } from "./DrawingBoardLoader";
 
-export const metadata: Metadata = { title: "Draw · Drawing Board" };
+export const metadata: Metadata = { title: "Draw · Sketch to poster" };
 
 // Pinch-zoom would fight with drawing.
 export const viewport: Viewport = {

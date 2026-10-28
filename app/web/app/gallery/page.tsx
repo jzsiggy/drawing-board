@@ -8,7 +8,7 @@ import { LocalDate } from "@/components/LocalDate";
 import { listGallery, parseFilter, type GalleryDrawing, type GalleryFilter } from "@/lib/gallery";
 import { getCurrentPerson } from "@/lib/session";
 
-export const metadata: Metadata = { title: "Gallery · Drawing Board" };
+export const metadata: Metadata = { title: "Gallery · Sketch to poster" };
 
 const FILTERS: { value: GalleryFilter; label: string; href: string }[] = [
   { value: "all", label: "Everyone", href: "/gallery" },

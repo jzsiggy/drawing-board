@@ -20,6 +20,8 @@ export interface FrameStatus {
   nextCheckAt: string | null;
   // Well past its next check-in: off, out of battery or out of Wi-Fi range.
   late: boolean;
+  // The poster on the frame right now, if it's one made here.
+  showingGenerationId: string | null;
   poster: PosterOnFrame | null;
 }
 
@@ -85,12 +87,14 @@ export async function listFrameStatuses(generationId?: string): Promise<FrameSta
         poster = sentTo.has(board.id) ? "replaced" : "not-sent";
       }
     }
+    const shown = board.desired && board.shown_sha256 === board.desired.sha256 ? board.desired.generation_id : null;
     return {
       id: board.id,
       name: board.name,
       batteryPercent: batteryPercent(board.battery_mv),
       lastSeenAt: board.last_seen_at,
       ...timing,
+      showingGenerationId: shown,
       poster,
     };
   });

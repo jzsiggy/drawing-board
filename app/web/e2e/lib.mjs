@@ -77,7 +77,7 @@ export async function addYourself(page, name) {
     [0.5, 0.7],
     [0.9, 0.4],
   ]);
-  await page.getByRole("button", { name: "Start drawing" }).click();
+  await page.getByRole("button", { name: "Save person" }).click();
   await page.waitForURL("**/draw");
   await page.getByRole("img", { name: "Drawing canvas" }).waitFor();
 }

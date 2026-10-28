@@ -12,7 +12,7 @@ import { VersionActions } from "@/components/VersionActions";
 import { VersionRow } from "@/components/VersionRow";
 import { getGalleryDrawing, type GalleryVersion } from "@/lib/gallery";
 
-export const metadata: Metadata = { title: "Drawing · Drawing Board" };
+export const metadata: Metadata = { title: "Drawing · Sketch to poster" };
 
 export default function DrawingPage({ params, searchParams }: PageProps<"/gallery/[id]">) {
   return (

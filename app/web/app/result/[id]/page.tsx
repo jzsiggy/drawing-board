@@ -6,7 +6,7 @@ import { Suspense } from "react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ResultView } from "./ResultView";
 
-export const metadata: Metadata = { title: "Your poster · Drawing Board" };
+export const metadata: Metadata = { title: "Your poster · Sketch to poster" };
 
 const SKETCH_URL_SECONDS = 60 * 60;
 

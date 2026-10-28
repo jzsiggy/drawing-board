@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
 
+import { buttonClass } from "@/components/buttonClass";
 import { SignatureSvg } from "@/components/SignatureSvg";
 import { useHydrated } from "@/components/useHydrated";
 import { useResetOnLeave } from "@/components/useResetOnLeave";
@@ -13,6 +14,7 @@ export interface PickerPerson {
   id: string;
   name: string;
   signature: StrokeDoc;
+  posters: number;
   createdHere: boolean;
   usedHere: boolean;
 }
@@ -52,8 +54,12 @@ export function PeoplePicker({ people, currentId }: { people: PickerPerson[]; cu
     router.refresh();
   }
 
+  const row = (p: PickerPerson) => (
+    <PersonRow key={p.id} person={p} current={p.id === currentId} busy={picking === p.id} onPick={pick} />
+  );
+
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-1 flex-col gap-6">
       {people.length > 0 && (
         <input
           id="search"
@@ -64,55 +70,38 @@ export function PeoplePicker({ people, currentId }: { people: PickerPerson[]; cu
           aria-label="Search names"
           disabled={!hydrated}
           autoComplete="off"
-          className="h-12 rounded-full border border-line bg-card px-5 text-base outline-none placeholder:text-muted focus:border-ink"
+          className="h-11 border border-line bg-card px-3 text-base outline-none placeholder:text-muted focus:border-ink"
         />
       )}
 
       {error && <p className="text-sm text-accent">{error}</p>}
+      {query && here.length === 0 && everyone.length === 0 && (
+        <p className="text-sm text-muted">No one called &ldquo;{query}&rdquo; yet.</p>
+      )}
 
-      <div className="grid grid-cols-2 gap-3">
-        <Link
-          href="/who/new"
-          className="flex aspect-[5/3] flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-muted text-muted transition hover:border-ink hover:text-ink"
-        >
-          <span className="font-display text-3xl leading-none">+</span>
-          <span className="font-mono text-xs tracking-widest uppercase">Add yourself</span>
+      {here.length > 0 && <Section title="On this phone">{here.map(row)}</Section>}
+      {everyone.length > 0 && <Section title={here.length > 0 ? "Everyone else" : "Everyone"}>{everyone.map(row)}</Section>}
+
+      <div className="mt-auto flex flex-col gap-3">
+        <Link href="/who/new" className={buttonClass("primary")}>
+          Add a person
         </Link>
-        {here.length === 0 &&
-          everyone.length === 0 &&
-          (query ? (
-            <p className="col-span-2 py-6 text-center text-muted">No one called &ldquo;{query}&rdquo; yet.</p>
-          ) : null)}
+        <p className="text-xs text-muted">Tap a name to start drawing as that person.</p>
       </div>
-
-      {here.length > 0 && (
-        <Section title="On this phone">
-          {here.map((p) => (
-            <PersonCard key={p.id} person={p} current={p.id === currentId} busy={picking === p.id} onPick={pick} />
-          ))}
-        </Section>
-      )}
-      {everyone.length > 0 && (
-        <Section title={here.length > 0 ? "Everyone else" : "Everyone"}>
-          {everyone.map((p) => (
-            <PersonCard key={p.id} person={p} current={p.id === currentId} busy={picking === p.id} onPick={pick} />
-          ))}
-        </Section>
-      )}
     </div>
   );
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="flex flex-col gap-3">
-      <h2 className="font-mono text-xs tracking-widest text-muted uppercase">{title}</h2>
-      <div className="grid grid-cols-2 gap-3">{children}</div>
+    <section className="flex flex-col gap-2">
+      <h2 className="microcaps text-muted">{title}</h2>
+      <ul className="flex flex-col bg-card">{children}</ul>
     </section>
   );
 }
 
-function PersonCard({
+function PersonRow({
   person,
   current,
   busy,
@@ -123,29 +112,44 @@ function PersonCard({
   busy: boolean;
   onPick: (p: PickerPerson) => void;
 }) {
+  const count = person.posters === 0 ? "No posters yet" : person.posters === 1 ? "1 poster" : `${person.posters} posters`;
   return (
-    <div className="relative">
+    <li className={`flex items-stretch border-b border-line last:border-b-0 ${current ? "bg-sunken" : ""}`}>
       <button
         type="button"
         onClick={() => onPick(person)}
         disabled={busy}
-        className={`flex w-full flex-col items-stretch gap-2 rounded-xl border bg-card px-3 pt-3 pb-2.5 text-left transition hover:border-ink disabled:opacity-60 ${
-          current ? "border-ink" : "border-line"
-        }`}
+        className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3.5 text-left disabled:opacity-60"
       >
-        <SignatureSvg signature={person.signature} label={`${person.name}'s signature`} className="aspect-[5/2] w-full text-ink" />
-        <span className="truncate border-t border-line pt-2 font-mono text-xs tracking-wider uppercase">
-          {busy ? "One moment…" : person.name}
+        <span
+          className={`flex size-11 shrink-0 items-center justify-center text-sm font-medium ${
+            current ? "bg-primary text-white" : "bg-sunken"
+          }`}
+          aria-hidden
+        >
+          {initials(person.name)}
         </span>
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="truncate text-lg leading-[21px]">{person.name}</span>
+          <span className="text-sm leading-4 text-muted">{busy ? "One moment…" : current ? `${count} · drawing now` : count}</span>
+        </span>
+        <SignatureSvg signature={person.signature} label={`${person.name}'s signature`} className="h-8 w-20 shrink-0 text-ink" />
       </button>
       {person.createdHere && (
         <Link
           href={`/who/${person.id}/edit`}
-          className="absolute top-1.5 right-2 rounded px-1.5 py-0.5 font-mono text-[10px] tracking-widest text-muted uppercase hover:text-ink"
+          aria-label={`Edit ${person.name}`}
+          className="flex w-12 shrink-0 items-center justify-center text-xs text-primary underline underline-offset-2"
         >
           Edit
         </Link>
       )}
-    </div>
+    </li>
   );
+}
+
+function initials(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  const letters = words.length > 1 ? [words[0], words[words.length - 1]] : words.slice(0, 1);
+  return letters.map((w) => [...w][0]?.toLocaleUpperCase() ?? "").join("") || "?";
 }

@@ -1,23 +1,22 @@
 import type { Metadata, Viewport } from "next";
-import { Bricolage_Grotesque, IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
+import { Bebas_Neue, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 
-const bricolage = Bricolage_Grotesque({ variable: "--font-bricolage", subsets: ["latin"] });
-const plex = IBM_Plex_Sans({ variable: "--font-plex", subsets: ["latin"], weight: ["400", "500", "600"] });
-const plexMono = IBM_Plex_Mono({ variable: "--font-plex-mono", subsets: ["latin"], weight: ["400", "500"] });
+const bebas = Bebas_Neue({ variable: "--font-bebas", subsets: ["latin"], weight: "400" });
+const spaceGrotesk = Space_Grotesk({ variable: "--font-space-grotesk", subsets: ["latin"], weight: ["300", "400", "500"] });
 
 export const metadata: Metadata = {
-  title: "Drawing Board",
-  description: "Draw something, turn it into a retro poster, and put it on the frame.",
+  title: "Sketch to poster",
+  description: "Draw something, turn it into a retro poster, and put it on the display.",
 };
 
 export const viewport: Viewport = {
-  themeColor: "#eceeeb",
+  themeColor: "#f4efe6",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${bricolage.variable} ${plex.variable} ${plexMono.variable} antialiased`}>
+    <html lang="en" className={`${bebas.variable} ${spaceGrotesk.variable} antialiased`}>
       <body className="min-h-dvh font-sans">{children}</body>
     </html>
   );
