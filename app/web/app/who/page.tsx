@@ -27,14 +27,13 @@ export default function WhoPage() {
 
 async function People() {
   const supabase = await createSessionClient();
-  const [deviceId, current, people, history, posters] = await Promise.all([
+  const [deviceId, current, people, posters] = await Promise.all([
     getDeviceId(),
     getCurrentPerson(),
     supabase
       .from("people")
       .select("id, name, signature_strokes, created_by_device_id")
       .order("last_active_at", { ascending: false }),
-    supabase.from("device_people").select("person_id"),
     createAdminClient().from("generations").select("drawing:drawings!inner(artist_id)").eq("status", "succeeded"),
   ]);
   if (people.error) throw people.error;
@@ -42,14 +41,12 @@ async function People() {
 
   const counts = new Map<string, number>();
   for (const { drawing } of posters.data) counts.set(drawing.artist_id, (counts.get(drawing.artist_id) ?? 0) + 1);
-  const usedHere = new Set((history.data ?? []).map((row) => row.person_id));
   const list: PickerPerson[] = people.data.map((p) => ({
     id: p.id,
     name: p.name,
     signature: p.signature_strokes as unknown as StrokeDoc,
     posters: counts.get(p.id) ?? 0,
     createdHere: p.created_by_device_id === deviceId,
-    usedHere: usedHere.has(p.id) || p.created_by_device_id === deviceId,
   }));
 
   return <PeoplePicker people={list} currentId={current?.id ?? null} />;

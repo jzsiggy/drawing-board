@@ -21,12 +21,14 @@ await page.waitForURL("**/draw", { timeout: 10000 }).catch(() => {});
 check("a signature sliding off the pad is saved", page.url().endsWith("/draw"));
 check("the canvas says who's drawing", await page.getByRole("img", { name: `${name}'s signature` }).filter({ visible: true }).waitFor().then(() => true, () => false));
 
-// The picker: you, under "On this phone", with Edit.
+// The picker: you, at the top of one list, with Edit.
 await page.getByRole("link", { name: "Change" }).click();
 await page.waitForURL("**/who");
-await page.getByText("On this phone").waitFor();
+await page.getByRole("list", { name: "People" }).waitFor();
 const card = page.getByRole("button", { name: new RegExp(name) });
 check("you appear in the picker", await card.first().isVisible());
+check("…at the top of the list", (await page.getByRole("list", { name: "People" }).getByRole("listitem").first().textContent()).includes(name));
+check("the list isn't split by phone", (await page.getByText(/^(On this phone|Everyone)/).count()) === 0);
 const editHref = await page.getByRole("link", { name: `Edit ${name}` }).getAttribute("href");
 check("people you added have an Edit link", Boolean(editHref));
 check("your row shows your poster count", await card.first().getByText("No posters yet").isVisible());
@@ -73,8 +75,9 @@ check("the add form is empty after adding someone", (await page.getByPlaceholder
 // Another phone can pick Ana but not edit her.
 const other = await newPhone();
 await other.goto(BASE + "/who");
-await other.getByText("On this phone").or(other.getByText("Everyone")).first().waitFor();
-check("another phone doesn't see Ana under 'On this phone'", (await other.getByText("On this phone").count()) === 0);
+await other.getByRole("list", { name: "People" }).waitFor();
+check("another phone sees Ana in the list", await other.getByRole("button", { name: new RegExp(name) }).first().isVisible());
+check("…without an Edit link", (await other.getByRole("link", { name: `Edit ${name}` }).count()) === 0);
 // The page streams, so the status is already 200 when it finds out; check
 // what the phone sees instead.
 await other.goto(BASE + editHref);

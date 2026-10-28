@@ -34,15 +34,12 @@ export async function getCurrentPerson(): Promise<Person | null> {
 }
 
 // Remembers the choice on this phone (server-set, so Safari doesn't cap it at
-// 7 days) and in the picker's "On this phone" list.
+// 7 days) and moves the person to the top of the picker.
 export async function selectPerson(deviceId: string, personId: string) {
   await ensureDevice(deviceId);
   const supabase = createAdminClient();
   const now = new Date().toISOString();
   const results = await Promise.all([
-    supabase
-      .from("device_people")
-      .upsert({ device_id: deviceId, person_id: personId, last_selected_at: now }),
     supabase.from("people").update({ last_active_at: now }).eq("id", personId),
     supabase.from("devices").update({ last_seen_at: now }).eq("id", deviceId),
   ]);

@@ -16,7 +16,6 @@ export interface PickerPerson {
   signature: StrokeDoc;
   posters: number;
   createdHere: boolean;
-  usedHere: boolean;
 }
 
 export function PeoplePicker({ people, currentId }: { people: PickerPerson[]; currentId: string | null }) {
@@ -38,8 +37,6 @@ export function PeoplePicker({ people, currentId }: { people: PickerPerson[]; cu
     const q = query.trim().toLocaleLowerCase();
     return q ? people.filter((p) => p.name.toLocaleLowerCase().includes(q)) : people;
   }, [people, query]);
-  const here = matches.filter((p) => p.usedHere);
-  const everyone = matches.filter((p) => !p.usedHere);
 
   async function pick(person: PickerPerson) {
     setPicking(person.id);
@@ -53,10 +50,6 @@ export function PeoplePicker({ people, currentId }: { people: PickerPerson[]; cu
     router.push("/draw");
     router.refresh();
   }
-
-  const row = (p: PickerPerson) => (
-    <PersonRow key={p.id} person={p} current={p.id === currentId} busy={picking === p.id} onPick={pick} />
-  );
 
   return (
     <div className="flex flex-1 flex-col gap-6">
@@ -75,12 +68,17 @@ export function PeoplePicker({ people, currentId }: { people: PickerPerson[]; cu
       )}
 
       {error && <p className="text-sm text-accent">{error}</p>}
-      {query && here.length === 0 && everyone.length === 0 && (
+      {query && matches.length === 0 && (
         <p className="text-sm text-muted">No one called &ldquo;{query}&rdquo; yet.</p>
       )}
 
-      {here.length > 0 && <Section title="On this phone">{here.map(row)}</Section>}
-      {everyone.length > 0 && <Section title={here.length > 0 ? "Everyone else" : "Everyone"}>{everyone.map(row)}</Section>}
+      {matches.length > 0 && (
+        <ul className="flex flex-col bg-card" aria-label="People">
+          {matches.map((p) => (
+            <PersonRow key={p.id} person={p} current={p.id === currentId} busy={picking === p.id} onPick={pick} />
+          ))}
+        </ul>
+      )}
 
       <div className="mt-auto flex flex-col gap-3">
         <Link href="/who/new" className={buttonClass("primary")}>
@@ -89,15 +87,6 @@ export function PeoplePicker({ people, currentId }: { people: PickerPerson[]; cu
         <p className="text-xs text-muted">Tap a name to start drawing as that person.</p>
       </div>
     </div>
-  );
-}
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section className="flex flex-col gap-2">
-      <h2 className="microcaps text-muted">{title}</h2>
-      <ul className="flex flex-col bg-card">{children}</ul>
-    </section>
   );
 }
 
